@@ -71,48 +71,58 @@ export default function SignupPage() {
     try {
       // 1. Auth 계정 생성
       const { data: authData, error: authError } = await supabase.auth.signUp({ email, password })
-      if (authError || !authData.user) throw new Error(authError?.message || '계정 생성 실패')
+      if (authError) throw new Error(authError.message)
+      if (!authData.user) throw new Error('계정 생성에 실패했습니다. 다시 시도해 주세요.')
 
       const userId = authData.user.id
 
-      // 2. 학생증 업로드
+      // 2. 학생증 업로드 — 실패 시 즉시 중단
       const ext = imageFile.name.split('.').pop()
       const { error: uploadError } = await supabase.storage
         .from('student-ids')
         .upload(`${userId}.${ext}`, imageFile, { upsert: true })
-      if (uploadError) throw new Error('이미지 업로드 실패')
+      if (uploadError) {
+        throw new Error(`학생증 이미지 업로드에 실패했습니다. (${uploadError.message})`)
+      }
 
-      const { data: urlData } = supabase.storage.from('student-ids').getPublicUrl(`${userId}.${ext}`)
+      const { data: urlData } = supabase.storage
+        .from('student-ids')
+        .getPublicUrl(`${userId}.${ext}`)
 
-      // 3. users 프로필 생성
-      await supabase.from('users').insert({
+      // 3. users 프로필 생성 — 반환된 error를 반드시 확인
+      const { error: insertError } = await supabase.from('users').insert({
         id: userId,
         email,
         name,
         department,
         student_id: studentId,
         role: 'user',
-        status: 'pending',
+        verification_status: 'PENDING',
         student_id_url: urlData.publicUrl,
       })
+      if (insertError) {
+        throw new Error(`회원 정보 저장에 실패했습니다. (${insertError.message})`)
+      }
 
-      // 4. 방장 신청
+      // 4. 방장 신청 — 반환된 error를 반드시 확인
       if (isOwner) {
         if (selectedClub) {
-          // 기존 중앙동아리에 방장 신청 요청
-          await supabase.from('owner_requests').insert({ user_id: userId, club_name: selectedClub, type: 'central' })
+          const { error: ownerErr } = await supabase
+            .from('owner_requests')
+            .insert({ user_id: userId, club_name: selectedClub, type: 'central' })
+          if (ownerErr) throw new Error(`방장 신청 저장에 실패했습니다. (${ownerErr.message})`)
         } else if (newClubName) {
-          // 신규 동아리 개설 신청
-          await supabase.from('owner_requests').insert({
-            user_id: userId, club_name: newClubName, category: newClubCategory,
-            description: newClubDesc, type: 'new',
-          })
+          const { error: ownerErr } = await supabase
+            .from('owner_requests')
+            .insert({ user_id: userId, club_name: newClubName, category: newClubCategory, description: newClubDesc, type: 'new' })
+          if (ownerErr) throw new Error(`동아리 개설 신청 저장에 실패했습니다. (${ownerErr.message})`)
         }
       }
 
+      // 모든 단계가 성공한 경우에만 이동
       router.push('/pending')
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : '오류가 발생했습니다.')
+      setError(err instanceof Error ? err.message : '오류가 발생했습니다. 잠시 후 다시 시도해 주세요.')
     } finally {
       setLoading(false)
     }
