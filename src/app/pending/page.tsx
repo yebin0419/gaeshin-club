@@ -9,14 +9,14 @@ import { useEffect, useState } from 'react'
 export default function PendingPage() {
   const router = useRouter()
   const supabase = createClient()
-  const [status, setStatus] = useState<'pending' | 'rejected'>('pending')
+  const [status, setStatus] = useState<'PENDING' | 'REJECTED'>('PENDING')
 
   useEffect(() => {
     const checkStatus = async () => {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
-      const { data } = await supabase.from('users').select('status').eq('id', user.id).single()
-      if (data?.status === 'rejected') setStatus('rejected')
+      const { data } = await supabase.from('users').select('verification_status').eq('id', user.id).single()
+      if (data?.verification_status === 'REJECTED') setStatus('REJECTED')
     }
     checkStatus()
   }, [supabase])
@@ -29,7 +29,7 @@ export default function PendingPage() {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 px-4">
       <div className="w-full max-w-sm bg-white rounded-2xl shadow-sm border border-gray-200 p-8 text-center">
-        {status === 'pending' ? (
+        {status === 'PENDING' ? (
           <>
             <div className="w-16 h-16 bg-[#FADBD8] rounded-full flex items-center justify-center mx-auto mb-4">
               <Clock size={32} className="text-[#C0392B]" />
@@ -56,7 +56,7 @@ export default function PendingPage() {
         )}
 
         <div className="mt-6 flex flex-col gap-2">
-          {status === 'rejected' && (
+          {status === 'REJECTED' && (
             <Button onClick={() => router.push('/signup')} className="w-full">
               재신청하기
             </Button>

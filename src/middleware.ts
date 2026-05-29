@@ -27,30 +27,30 @@ export async function middleware(request: NextRequest) {
 
   const { pathname } = request.nextUrl
   const publicPaths = ['/login', '/signup', '/pending']
+  const isPublic = publicPaths.some(p => pathname.startsWith(p))
 
-  // 비로그인 유저는 로그인 페이지로
-  if (!user && !publicPaths.some(p => pathname.startsWith(p))) {
+  // 비로그인 유저 → 로그인 페이지
+  if (!user && !isPublic) {
     return NextResponse.redirect(new URL('/login', request.url))
   }
 
-  // 로그인 유저가 /login, /signup 접근 시 홈으로
+  // 로그인 유저가 /login, /signup 접근 시 → 홈
   if (user && (pathname === '/login' || pathname === '/signup')) {
     return NextResponse.redirect(new URL('/home', request.url))
   }
 
-  // 승인 대기 유저는 /pending 외 접근 불가
-  if (user && !publicPaths.some(p => pathname.startsWith(p))) {
+  // 로그인 유저 중 비공개 경로 접근 시 verification_status 확인
+  if (user && !isPublic) {
     const { data: profile } = await supabase
       .from('users')
-      .select('status, role')
+      .select('verification_status, role')
       .eq('id', user.id)
       .single()
 
-    if (profile?.status === 'pending' && pathname !== '/pending') {
-      return NextResponse.redirect(new URL('/pending', request.url))
-    }
+    const status = profile?.verification_status
 
-    if (profile?.status === 'rejected' && pathname !== '/pending') {
+    // APPROVED가 아닌 경우(PENDING, REJECTED, null 모두) /pending으로 차단
+    if (status !== 'APPROVED') {
       return NextResponse.redirect(new URL('/pending', request.url))
     }
 
