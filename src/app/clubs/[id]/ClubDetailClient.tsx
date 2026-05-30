@@ -76,7 +76,10 @@ export default function ClubDetailClient({ club, memberCount }: Props) {
       .from('clubs')
       .update({ is_recruiting: next })
       .eq('id', club.id)
-    if (!error) setIsRecruiting(next)
+    if (!error) {
+      setIsRecruiting(next)
+      router.refresh()
+    }
     setRecruitingLoading(false)
   }
 
