@@ -1,8 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, Check, X, Trash2 } from 'lucide-react'
+import { ArrowLeft, Check, X } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import Button from '@/components/ui/Button'
 import Badge from '@/components/ui/Badge'
@@ -44,6 +44,11 @@ export default function MembersClient({ clubId, clubName, applications: initApps
   const [memberList, setMemberList] = useState(initMembers)
   const [rejectReason, setRejectReason] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState<string | null>(null)
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null)
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => setCurrentUserId(data.user?.id ?? null))
+  }, [])
 
   const approve = async (app: Application) => {
     setLoading(app.id)
@@ -134,7 +139,7 @@ export default function MembersClient({ clubId, clubName, applications: initApps
                 </div>
                 <div className="flex items-center gap-2">
                   <Badge variant={roleBadge[m.role] ?? 'default'}>{roleLabel[m.role] ?? m.role}</Badge>
-                  {myRole === 'owner' && m.role !== 'owner' && (
+                  {myRole === 'owner' && m.user_id !== currentUserId && (
                     <>
                       <select
                         value={m.role}
@@ -147,10 +152,9 @@ export default function MembersClient({ clubId, clubName, applications: initApps
                       </select>
                       <button
                         onClick={() => removeMember(m.id, m.user?.name ?? '멤버')}
-                        className="p-1.5 rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors"
-                        title="내보내기"
+                        className="text-xs font-medium text-gray-400 hover:text-red-500 transition-colors px-1"
                       >
-                        <Trash2 size={15} />
+                        내보내기
                       </button>
                     </>
                   )}
