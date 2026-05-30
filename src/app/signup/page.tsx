@@ -120,6 +120,9 @@ export default function SignupPage() {
       }
 
       // 모든 단계가 성공한 경우에만 이동
+      if (isOwner) {
+        alert('방장 권한은 관리자 확인 후 1~2일 내에 부여됩니다.')
+      }
       router.push('/pending')
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : '오류가 발생했습니다. 잠시 후 다시 시도해 주세요.')
