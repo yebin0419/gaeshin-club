@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
-import { Users, ArrowLeft } from 'lucide-react'
+import { Users, ArrowLeft, Loader2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import Button from '@/components/ui/Button'
 import Badge from '@/components/ui/Badge'
@@ -96,7 +96,11 @@ export default function ClubDetailClient({ club, memberCount }: Props) {
       <div className="max-w-2xl mx-auto px-4 pb-24">
         {/* 헤더 */}
         <div className="sticky top-0 bg-gray-50 z-10 flex items-center gap-3 py-4">
-          <button onClick={() => { window.location.href = '/home' }} className="p-1 text-gray-500 hover:text-[#C0392B]">
+          <button
+            onClick={() => { if (!recruitingLoading) window.location.href = '/home' }}
+            disabled={recruitingLoading}
+            className="p-1 text-gray-500 hover:text-[#C0392B] disabled:opacity-40 disabled:cursor-not-allowed"
+          >
             <ArrowLeft size={22} />
           </button>
           <h1 className="font-bold text-lg text-gray-900 truncate">{club.name}</h1>
@@ -127,7 +131,9 @@ export default function ClubDetailClient({ club, memberCount }: Props) {
                     ? 'border-gray-300 text-gray-500 hover:bg-gray-100'
                     : 'border-[#C0392B] text-[#C0392B] hover:bg-[#FADBD8]'}`}
               >
-                {recruitingLoading ? '변경 중...' : isRecruiting ? '모집 마감으로 변경' : '모집 중으로 변경'}
+                {recruitingLoading
+                  ? <><Loader2 size={12} className="inline mr-1 animate-spin" />변경 중...</>
+                  : isRecruiting ? '모집 마감으로 변경' : '모집 중으로 변경'}
               </button>
             </div>
           )}
