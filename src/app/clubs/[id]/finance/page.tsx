@@ -4,6 +4,8 @@ import { createClient } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
 import FinanceClient from './FinanceClient'
 
+const ADMIN_ROLES = ['app_admin', 'admin', 'owner']
+
 export default async function FinancePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const supabase = await createClient()
@@ -12,9 +14,16 @@ export default async function FinancePage({ params }: { params: Promise<{ id: st
   if (!club) notFound()
 
   const { data: { user } } = await supabase.auth.getUser()
-  const { data: membership } = user
-    ? await supabase.from('club_members').select('role').eq('club_id', id).eq('user_id', user.id).single()
-    : { data: null }
+
+  const [membershipRes, userDataRes] = user
+    ? await Promise.all([
+        supabase.from('club_members').select('role').eq('club_id', id).eq('user_id', user.id).single(),
+        supabase.from('users').select('role').eq('id', user.id).single(),
+      ])
+    : [{ data: null }, { data: null }]
+
+  const membership = membershipRes.data
+  const isGlobalAdmin = ADMIN_ROLES.includes(userDataRes.data?.role ?? '')
 
   const { data: finances } = await supabase
     .from('finances')
@@ -25,8 +34,8 @@ export default async function FinancePage({ params }: { params: Promise<{ id: st
   const balance = (finances ?? []).reduce((acc: number, f: { type: string; amount: number }) =>
     f.type === 'income' ? acc + f.amount : acc - f.amount, 0)
 
-  const isStaff = membership?.role === 'owner' || membership?.role === 'staff'
-  const isOwner = membership?.role === 'owner'
+  const isStaff = isGlobalAdmin || membership?.role === 'owner' || membership?.role === 'staff'
+  const isOwner = isGlobalAdmin || membership?.role === 'owner'
 
   return <FinanceClient clubId={id} clubName={club.name} finances={finances ?? []} balance={balance} isStaff={isStaff} isOwner={isOwner} />
 }

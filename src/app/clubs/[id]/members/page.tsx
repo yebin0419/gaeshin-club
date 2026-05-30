@@ -4,6 +4,8 @@ import { createClient } from '@/lib/supabase/server'
 import { notFound, redirect } from 'next/navigation'
 import MembersClient from './MembersClient'
 
+const ADMIN_ROLES = ['app_admin', 'admin', 'owner']
+
 export default async function MembersPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const supabase = await createClient()
@@ -11,10 +13,15 @@ export default async function MembersPage({ params }: { params: Promise<{ id: st
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { data: myMembership } = await supabase
-    .from('club_members').select('role').eq('club_id', id).eq('user_id', user.id).single()
+  const [{ data: myMembership }, { data: userData }] = await Promise.all([
+    supabase.from('club_members').select('role').eq('club_id', id).eq('user_id', user.id).single(),
+    supabase.from('users').select('role').eq('id', user.id).single(),
+  ])
 
-  if (!myMembership || (myMembership.role !== 'owner' && myMembership.role !== 'staff')) {
+  const isGlobalAdmin = ADMIN_ROLES.includes(userData?.role ?? '')
+
+  // 전역 관리자가 아니면서 staff/owner도 아니면 접근 차단
+  if (!isGlobalAdmin && (!myMembership || (myMembership.role !== 'owner' && myMembership.role !== 'staff'))) {
     redirect(`/clubs/${id}`)
   }
 
@@ -34,13 +41,16 @@ export default async function MembersPage({ params }: { params: Promise<{ id: st
     .eq('club_id', id)
     .order('joined_at', { ascending: false })
 
+  // 전역 관리자는 myRole을 'owner'로 강제
+  const myRole = isGlobalAdmin ? 'owner' : (myMembership?.role ?? 'member')
+
   return (
     <MembersClient
       clubId={id}
       clubName={club.name}
       applications={applications ?? []}
       members={members ?? []}
-      myRole={myMembership.role}
+      myRole={myRole}
     />
   )
 }
