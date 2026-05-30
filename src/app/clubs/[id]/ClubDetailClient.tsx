@@ -159,7 +159,7 @@ export default function ClubDetailClient({ club, memberCount }: Props) {
             <Button size="lg" className="w-full" onClick={() => router.push(`/clubs/${club.id}/board`)}>
               게시판 보기
             </Button>
-          ) : (
+          ) : isRecruiting ? (
             <>
               {!showForm && !success && (
                 <Button size="lg" className="w-full" onClick={() => setShowForm(true)}>
@@ -183,6 +183,10 @@ export default function ClubDetailClient({ club, memberCount }: Props) {
                 </div>
               )}
             </>
+          ) : (
+            <div className="bg-gray-100 rounded-xl p-4 text-center text-gray-500 text-sm">
+              현재 동아리 모집 기간이 아닙니다.
+            </div>
           )}
 
           {isOwnerOrStaff && (
