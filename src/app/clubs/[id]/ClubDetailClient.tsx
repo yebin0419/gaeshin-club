@@ -97,7 +97,7 @@ export default function ClubDetailClient({ club, memberCount }: Props) {
         {/* 헤더 */}
         <div className="sticky top-0 bg-gray-50 z-10 flex items-center gap-3 py-4">
           <button
-            onClick={() => { if (!recruitingLoading) window.location.href = '/home' }}
+            onClick={() => { if (!recruitingLoading) window.location.href = '/home?refresh=' + new Date().getTime() }}
             disabled={recruitingLoading}
             className="p-1 text-gray-500 hover:text-[#C0392B] disabled:opacity-40 disabled:cursor-not-allowed"
           >
