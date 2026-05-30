@@ -144,7 +144,7 @@ export default function MembersClient({ clubId, clubName, applications: initApps
                 </div>
                 <div className="flex items-center gap-2">
                   <Badge variant={roleBadge[m.role] ?? 'default'}>{roleLabel[m.role] ?? m.role}</Badge>
-                  {myRole === 'owner' && m.user_id !== currentUserId && (
+                  {myRole === 'owner' && m.user_id !== currentUserId && m.role !== 'owner' && (
                     <>
                       <select
                         value={m.role}
