@@ -54,8 +54,16 @@ export default function ClubDetailClient({ club, memberCount }: Props) {
           .maybeSingle(),
       ])
 
-      // app_admin이면 owner로 간주해 모든 관리 기능 활성화
-      if (userData?.role === 'app_admin') {
+      const ADMIN_ROLES = ['app_admin', 'admin', 'owner']
+      const isGlobalAdmin = ADMIN_ROLES.includes(userData?.role ?? '')
+
+      console.log('[권한체크] user.id:', user.id)
+      console.log('[권한체크] users.role (DB값):', userData?.role)
+      console.log('[권한체크] club_members 조회 결과:', memberData)
+      console.log('[권한체크] isGlobalAdmin:', isGlobalAdmin)
+
+      // 전역 관리자이면 무조건 owner로 간주
+      if (isGlobalAdmin) {
         setMembership({ role: 'owner' })
       } else {
         setMembership(memberData)
@@ -167,7 +175,10 @@ export default function ClubDetailClient({ club, memberCount }: Props) {
 
         {/* 버튼 영역 */}
         <div className="flex flex-col gap-2">
-          {isMember ? (
+          {isOwner ? (
+            // 방장/관리자: 가입 신청 폼 숨김, 관리 버튼만 표시
+            null
+          ) : isMember ? (
             <Button size="lg" className="w-full" onClick={() => router.push(`/clubs/${club.id}/board`)}>
               게시판 보기
             </Button>
