@@ -1,55 +1,31 @@
 'use client'
 
-import { useState } from 'react'
-import { BookOpen, Calendar, Tag, ImageOff } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { BookOpen, Calendar, Tag, ImageOff, Loader2, FolderOpen } from 'lucide-react'
+import { createClient } from '@/lib/supabase/client'
 import { Club } from '@/types'
 
-// ─── 더미 데이터 (추후 Supabase archives 테이블로 교체) ───────────────────────
-// 실제 연동 시 아래 타입과 fetchArchives 함수를 사용하세요.
-//
-// interface ArchiveItem {
-//   id: string
-//   club_id: string
-//   title: string
-//   description: string | null
-//   file_url: string | null
-//   thumbnail_url: string | null
-//   year: number
-//   tags: string[]
-//   created_at: string
-// }
-//
-// async function fetchArchives(clubId: string): Promise<ArchiveItem[]> {
-//   const supabase = createClient()
-//   const { data } = await supabase
-//     .from('archives')
-//     .select('*')
-//     .eq('club_id', clubId)
-//     .order('created_at', { ascending: false })
-//   return data ?? []
-// }
-// ─────────────────────────────────────────────────────────────────────────────
-
-interface DummyCard {
-  id: number
+interface ArchiveItem {
+  id: string
+  club_id: string
   title: string
-  date: string
+  description: string | null
+  file_url: string | null
+  thumbnail_url: string | null
+  year: number
   tags: string[]
-  color: string
-  tall: boolean
+  created_at: string
 }
 
-const DUMMY_CARDS: DummyCard[] = [
-  { id: 1, title: '2024 정기공연 현장', date: '2024.11.20', tags: ['#활동사진', '#공연'], color: 'bg-rose-100', tall: true },
-  { id: 2, title: '신입부원 OT 자료', date: '2024.03.05', tags: ['#문서', '#OT'], color: 'bg-blue-100', tall: false },
-  { id: 3, title: '여름 캠프 스케치', date: '2024.07.18', tags: ['#활동사진', '#캠프'], color: 'bg-amber-100', tall: false },
-  { id: 4, title: '2023 연간 결산 보고서', date: '2023.12.28', tags: ['#문서', '#결산'], color: 'bg-green-100', tall: true },
-  { id: 5, title: '봄 축제 부스 운영', date: '2024.05.10', tags: ['#활동사진', '#축제'], color: 'bg-purple-100', tall: false },
-  { id: 6, title: '회칙 개정안 v2.1', date: '2024.02.14', tags: ['#문서', '#회칙'], color: 'bg-sky-100', tall: false },
-  { id: 7, title: '겨울 종무식 사진첩', date: '2023.12.15', tags: ['#활동사진', '#행사'], color: 'bg-orange-100', tall: true },
-  { id: 8, title: '프로젝트 기획안 #3', date: '2024.09.01', tags: ['#프로젝트', '#문서'], color: 'bg-teal-100', tall: false },
-  { id: 9, title: '신입생 환영회 스냅', date: '2024.03.12', tags: ['#활동사진', '#환영회'], color: 'bg-pink-100', tall: false },
-]
+async function fetchArchives(clubId: string): Promise<ArchiveItem[]> {
+  const supabase = createClient()
+  const { data } = await supabase
+    .from('archives')
+    .select('*')
+    .eq('club_id', clubId)
+    .order('created_at', { ascending: false })
+  return data ?? []
+}
 
 const categoryEmoji: Record<string, string> = {
   교양: '🎨', 학술: '📚', 문화: '🎭', 봉사: '🤝', 체육: '⚽', 종교: '✝️',
@@ -61,6 +37,22 @@ interface Props {
 
 export default function ArchiveClient({ clubs }: Props) {
   const [selectedClub, setSelectedClub] = useState<Club | null>(clubs[0] ?? null)
+  const [archives, setArchives] = useState<ArchiveItem[]>([])
+  const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    if (!selectedClub) return
+    setLoading(true)
+    fetchArchives(selectedClub.id).then(data => {
+      setArchives(data)
+      setLoading(false)
+    })
+  }, [selectedClub?.id])
+
+  const handleSelectClub = (club: Club) => {
+    setArchives([])
+    setSelectedClub(club)
+  }
 
   return (
     <div className="flex gap-0 min-h-[calc(100vh-160px)]">
@@ -72,7 +64,7 @@ export default function ArchiveClient({ clubs }: Props) {
           {clubs.map(club => (
             <button
               key={club.id}
-              onClick={() => setSelectedClub(club)}
+              onClick={() => handleSelectClub(club)}
               className={`w-full text-left px-3 py-2.5 rounded-xl text-sm transition-colors flex items-center gap-2
                 ${selectedClub?.id === club.id
                   ? 'bg-[#C0392B] text-white font-semibold shadow-sm'
@@ -100,12 +92,33 @@ export default function ArchiveClient({ clubs }: Props) {
               </p>
             </div>
 
-            {/* 갤러리 그리드 (Pinterest 2열) */}
-            <div className="columns-2 md:columns-3 gap-4 space-y-4">
-              {DUMMY_CARDS.map(card => (
-                <GalleryCard key={card.id} card={card} />
-              ))}
-            </div>
+            {/* 로딩 */}
+            {loading && (
+              <div className="flex items-center justify-center h-48 gap-2 text-gray-400">
+                <Loader2 size={20} className="animate-spin" />
+                <span className="text-sm">불러오는 중...</span>
+              </div>
+            )}
+
+            {/* 데이터 없음 */}
+            {!loading && archives.length === 0 && (
+              <div className="flex flex-col items-center justify-center h-48 gap-3 text-center">
+                <div className="w-14 h-14 rounded-full bg-gray-100 flex items-center justify-center">
+                  <FolderOpen size={26} className="text-gray-300" />
+                </div>
+                <p className="text-sm font-medium text-gray-500">아직 등록된 자료가 없습니다.</p>
+                <p className="text-xs text-gray-400">활동 사진, 문서, 기록을 업로드해 보세요.</p>
+              </div>
+            )}
+
+            {/* 갤러리 그리드 */}
+            {!loading && archives.length > 0 && (
+              <div className="columns-2 md:columns-3 gap-4 space-y-4">
+                {archives.map(item => (
+                  <GalleryCard key={item.id} item={item} />
+                ))}
+              </div>
+            )}
           </>
         ) : (
           <div className="flex flex-col items-center justify-center h-64 gap-3 text-gray-300">
@@ -118,36 +131,54 @@ export default function ArchiveClient({ clubs }: Props) {
   )
 }
 
-function GalleryCard({ card }: { card: DummyCard }) {
+function GalleryCard({ item }: { item: ArchiveItem }) {
+  const date = new Date(item.created_at).toLocaleDateString('ko-KR', {
+    year: 'numeric', month: '2-digit', day: '2-digit',
+  })
+
   return (
-    <div className="break-inside-avoid rounded-2xl border border-gray-200 bg-white overflow-hidden shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all cursor-pointer group">
+    <div className="break-inside-avoid rounded-2xl border border-gray-200 bg-white overflow-hidden shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all cursor-pointer group mb-4">
       {/* 썸네일 */}
-      <div className={`w-full ${card.tall ? 'h-48' : 'h-32'} ${card.color} flex items-center justify-center`}>
-        <ImageOff size={28} className="text-white/60" />
-      </div>
+      {item.thumbnail_url ? (
+        <img
+          src={item.thumbnail_url}
+          alt={item.title}
+          className="w-full object-cover"
+        />
+      ) : (
+        <div className="w-full h-36 bg-gray-100 flex items-center justify-center">
+          <ImageOff size={28} className="text-gray-300" />
+        </div>
+      )}
 
       {/* 카드 정보 */}
       <div className="p-3">
         <p className="text-sm font-semibold text-gray-800 leading-snug mb-2 group-hover:text-[#C0392B] transition-colors">
-          {card.title}
+          {item.title}
         </p>
+
+        {item.description && (
+          <p className="text-xs text-gray-500 mb-2 line-clamp-2">{item.description}</p>
+        )}
 
         <div className="flex items-center gap-1 text-xs text-gray-400 mb-2">
           <Calendar size={11} />
-          <span>{card.date}</span>
+          <span>{date}</span>
         </div>
 
-        <div className="flex flex-wrap gap-1">
-          {card.tags.map(tag => (
-            <span
-              key={tag}
-              className="inline-flex items-center gap-0.5 text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full"
-            >
-              <Tag size={9} />
-              {tag.replace('#', '')}
-            </span>
-          ))}
-        </div>
+        {item.tags && item.tags.length > 0 && (
+          <div className="flex flex-wrap gap-1">
+            {item.tags.map(tag => (
+              <span
+                key={tag}
+                className="inline-flex items-center gap-0.5 text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full"
+              >
+                <Tag size={9} />
+                {tag.replace('#', '')}
+              </span>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   )
