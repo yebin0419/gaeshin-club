@@ -36,7 +36,7 @@ interface Props {
 }
 
 export default function ArchiveClient({ clubs }: Props) {
-  const uniqueClubs = Array.from(new Map(clubs.map(c => [c.id, c])).values())
+  const uniqueClubs = Array.from(new Map(clubs.map(c => [c.name, c])).values())
   const [selectedClub, setSelectedClub] = useState<Club | null>(uniqueClubs[0] ?? null)
   const [archives, setArchives] = useState<ArchiveItem[]>([])
   const [loading, setLoading] = useState(false)
