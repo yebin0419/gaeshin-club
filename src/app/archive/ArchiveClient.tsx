@@ -62,14 +62,27 @@ export default function ArchiveClient({ clubs }: Props) {
 
   useEffect(() => {
     if (!selectedClub || !userId) { setIsOwner(false); return }
-    supabase
-      .from('club_members')
-      .select('role')
-      .eq('club_id', selectedClub.id)
-      .eq('user_id', userId)
-      .eq('role', 'owner')
-      .maybeSingle()
-      .then(({ data }) => setIsOwner(!!data))
+
+    Promise.all([
+      // 조건 1: 이 동아리의 owner인지
+      supabase
+        .from('club_members')
+        .select('role')
+        .eq('club_id', selectedClub.id)
+        .eq('user_id', userId)
+        .eq('role', 'owner')
+        .maybeSingle(),
+      // 조건 2: 앱 전체 관리자(app_admin)인지
+      supabase
+        .from('users')
+        .select('role')
+        .eq('id', userId)
+        .maybeSingle(),
+    ]).then(([clubRes, userRes]) => {
+      const isClubOwner = !!clubRes.data
+      const isAppAdmin = userRes.data?.role === 'app_admin'
+      setIsOwner(isClubOwner || isAppAdmin)
+    })
   }, [selectedClub?.id, userId])
 
   useEffect(() => {

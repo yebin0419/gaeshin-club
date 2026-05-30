@@ -40,14 +40,26 @@ export default function ClubDetailClient({ club, memberCount }: Props) {
 
       setUserId(user.id)
 
-      const { data } = await supabase
-        .from('club_members')
-        .select('role')
-        .eq('club_id', club.id)
-        .eq('user_id', user.id)
-        .single()
+      const [{ data: memberData }, { data: userData }] = await Promise.all([
+        supabase
+          .from('club_members')
+          .select('role')
+          .eq('club_id', club.id)
+          .eq('user_id', user.id)
+          .maybeSingle(),
+        supabase
+          .from('users')
+          .select('role')
+          .eq('id', user.id)
+          .maybeSingle(),
+      ])
 
-      setMembership(data)
+      // app_admin이면 owner로 간주해 모든 관리 기능 활성화
+      if (userData?.role === 'app_admin') {
+        setMembership({ role: 'owner' })
+      } else {
+        setMembership(memberData)
+      }
       setAuthLoading(false)
     }
 
