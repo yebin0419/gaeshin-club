@@ -13,14 +13,19 @@ export default async function ClubDetailPage({ params }: { params: Promise<{ id:
 
   const { data: { user } } = await supabase.auth.getUser()
 
-  const { data: membership } = user
+  const { data: membership, error: membershipError } = user
     ? await supabase.from('club_members').select('role').eq('club_id', id).eq('user_id', user.id).single()
-    : { data: null }
+    : { data: null, error: null }
 
-  const { data: memberCount } = await supabase
+  // [디버그] 서버 터미널에서 확인 — 값이 올바르면 { role: 'owner' } 가 찍혀야 함
+  console.log('[ClubDetailPage] 현재 유저 ID:', user?.id ?? '로그인 안 됨')
+  console.log('[ClubDetailPage] DB에서 가져온 내 권한:', membership)
+  console.log('[ClubDetailPage] membership 쿼리 에러:', membershipError)
+
+  const { count: memberCount } = await supabase
     .from('club_members')
-    .select('id', { count: 'exact', head: true })
+    .select('*', { count: 'exact', head: true })
     .eq('club_id', id)
 
-  return <ClubDetailClient club={club} membership={membership} memberCount={memberCount as unknown as number ?? 0} userId={user?.id} />
+  return <ClubDetailClient club={club} membership={membership} memberCount={memberCount ?? 0} userId={user?.id} />
 }
