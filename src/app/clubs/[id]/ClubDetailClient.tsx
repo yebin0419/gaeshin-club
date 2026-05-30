@@ -41,7 +41,8 @@ export default function ClubDetailClient({ club, membership, memberCount, userId
     setLoading(false)
   }
 
-  // [디버그] 브라우저 F12 콘솔에서 확인 — 'owner' 가 찍혀야 방장으로 인식됨
+  // [디버그] 브라우저 F12 콘솔에서 확인
+  console.log('[ClubDetailClient] 서버에서 받은 userId:', userId ?? '없음(null) → 서버에서 로그인 세션을 못 읽은 것')
   console.log('[ClubDetailClient] DB에서 가져온 내 권한:', membership?.role ?? '없음(null)')
 
   const isMember = !!membership

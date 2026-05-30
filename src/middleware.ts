@@ -43,14 +43,14 @@ export async function middleware(request: NextRequest) {
   if (user && !isPublic) {
     const { data: profile } = await supabase
       .from('users')
-      .select('verification_status, role')
+      .select('status, role')
       .eq('id', user.id)
       .single()
 
-    const status = profile?.verification_status
+    const status = profile?.status
 
-    // APPROVED가 아닌 경우(PENDING, REJECTED, null 모두) /pending으로 차단
-    if (status !== 'APPROVED') {
+    // approved가 아닌 경우(pending, rejected, null 모두) /pending으로 차단
+    if (status !== 'approved') {
       return NextResponse.redirect(new URL('/pending', request.url))
     }
 
