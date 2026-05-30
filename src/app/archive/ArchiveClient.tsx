@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useMemo } from 'react'
-import { BookOpen, Calendar, Tag, ImageOff, Loader2, FolderOpen, Upload } from 'lucide-react'
+import { BookOpen, Calendar, Tag, ImageOff, Loader2, FolderOpen, Upload, X } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Club } from '@/types'
 
@@ -31,6 +31,8 @@ const categoryEmoji: Record<string, string> = {
   교양: '🎨', 학술: '📚', 문화: '🎭', 봉사: '🤝', 체육: '⚽', 종교: '✝️',
 }
 
+const PRESET_TAGS = ['활동사진', '문서', '프로젝트', '공연', '행사', '캠프', '친목', '학술', '봉사', '결산']
+
 interface Props {
   clubs: Club[]
 }
@@ -43,15 +45,20 @@ export default function ArchiveClient({ clubs }: Props) {
   const [loading, setLoading] = useState(false)
   const [userId, setUserId] = useState<string | null>(null)
   const [isOwner, setIsOwner] = useState(false)
+  const [isModalOpen, setIsModalOpen] = useState(false)
 
-  // 로그인한 유저 ID를 한 번만 가져옴
+  // 폼 상태
+  const [formTitle, setFormTitle] = useState('')
+  const [formDate, setFormDate] = useState('')
+  const [formThumbnail, setFormThumbnail] = useState('')
+  const [formDescription, setFormDescription] = useState('')
+  const [formTags, setFormTags] = useState<string[]>([])
+  const [uploading, setUploading] = useState(false)
+
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      setUserId(data.user?.id ?? null)
-    })
+    supabase.auth.getUser().then(({ data }) => setUserId(data.user?.id ?? null))
   }, [])
 
-  // 선택된 동아리 + 유저가 바뀔 때마다 방장 여부 확인
   useEffect(() => {
     if (!selectedClub || !userId) { setIsOwner(false); return }
     supabase
@@ -64,7 +71,6 @@ export default function ArchiveClient({ clubs }: Props) {
       .then(({ data }) => setIsOwner(!!data))
   }, [selectedClub?.id, userId])
 
-  // 선택된 동아리의 아카이브 목록 로드
   useEffect(() => {
     if (!selectedClub) return
     setLoading(true)
@@ -79,91 +85,270 @@ export default function ArchiveClient({ clubs }: Props) {
     setSelectedClub(club)
   }
 
+  const refreshArchives = () => {
+    if (!selectedClub) return
+    fetchArchives(selectedClub.id).then(setArchives)
+  }
+
+  const resetForm = () => {
+    setFormTitle('')
+    setFormDate('')
+    setFormThumbnail('')
+    setFormDescription('')
+    setFormTags([])
+  }
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false)
+    resetForm()
+  }
+
+  const toggleTag = (tag: string) => {
+    setFormTags(prev =>
+      prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag]
+    )
+  }
+
+  const handleUpload = async () => {
+    if (!formTitle.trim()) { alert('자료 제목을 입력해 주세요.'); return }
+    if (!formDate) { alert('활동 날짜를 선택해 주세요.'); return }
+    if (!selectedClub || !userId) { alert('동아리 또는 로그인 정보를 확인해 주세요.'); return }
+
+    setUploading(true)
+    const year = new Date(formDate).getFullYear()
+
+    const { error } = await supabase.from('archives').insert({
+      club_id: selectedClub.id,
+      title: formTitle.trim(),
+      description: formDescription.trim() || null,
+      thumbnail_url: formThumbnail.trim() || null,
+      file_url: null,
+      year,
+      tags: formTags,
+      uploaded_by: userId,
+    })
+
+    setUploading(false)
+
+    if (error) {
+      alert(`업로드에 실패했습니다.\n${error.message}`)
+      return
+    }
+
+    handleCloseModal()
+    refreshArchives()
+  }
+
   return (
-    <div className="flex gap-0 min-h-[calc(100vh-160px)]">
+    <>
+      <div className="flex gap-0 min-h-[calc(100vh-160px)]">
 
-      {/* ── 사이드바 ─────────────────────────────────────────────── */}
-      <aside className="w-52 shrink-0 border-r border-gray-200 pr-4 mr-4">
-        <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3 px-1">동아리</p>
-        <div className="flex flex-col gap-0.5">
-          {uniqueClubs.map(club => (
-            <button
-              key={club.id}
-              onClick={() => handleSelectClub(club)}
-              className={`w-full text-left px-3 py-2.5 rounded-xl text-sm transition-colors flex items-center gap-2
-                ${selectedClub?.id === club.id
-                  ? 'bg-[#C0392B] text-white font-semibold shadow-sm'
-                  : 'text-gray-600 hover:bg-gray-100 font-medium'}`}
-            >
-              <span className="text-base leading-none">{categoryEmoji[club.category] ?? '🏫'}</span>
-              <span className="truncate">{club.name}</span>
-            </button>
-          ))}
-        </div>
-      </aside>
+        {/* ── 사이드바 ───────────────────────────────────────────── */}
+        <aside className="w-52 shrink-0 border-r border-gray-200 pr-4 mr-4">
+          <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3 px-1">동아리</p>
+          <div className="flex flex-col gap-0.5">
+            {uniqueClubs.map(club => (
+              <button
+                key={club.id}
+                onClick={() => handleSelectClub(club)}
+                className={`w-full text-left px-3 py-2.5 rounded-xl text-sm transition-colors flex items-center gap-2
+                  ${selectedClub?.id === club.id
+                    ? 'bg-[#C0392B] text-white font-semibold shadow-sm'
+                    : 'text-gray-600 hover:bg-gray-100 font-medium'}`}
+              >
+                <span className="text-base leading-none">{categoryEmoji[club.category] ?? '🏫'}</span>
+                <span className="truncate">{club.name}</span>
+              </button>
+            ))}
+          </div>
+        </aside>
 
-      {/* ── 메인 갤러리 영역 ─────────────────────────────────────── */}
-      <div className="flex-1 min-w-0">
-        {selectedClub ? (
-          <>
-            {/* 헤더 */}
-            <div className="mb-6">
-              <div className="flex items-center justify-between gap-2 mb-1">
-                <div className="flex items-center gap-2">
-                  <span className="text-2xl">{categoryEmoji[selectedClub.category] ?? '🏫'}</span>
-                  <h2 className="text-xl font-bold text-gray-900">{selectedClub.name}</h2>
+        {/* ── 메인 갤러리 영역 ────────────────────────────────────── */}
+        <div className="flex-1 min-w-0">
+          {selectedClub ? (
+            <>
+              {/* 헤더 */}
+              <div className="mb-6">
+                <div className="flex items-center justify-between gap-2 mb-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-2xl">{categoryEmoji[selectedClub.category] ?? '🏫'}</span>
+                    <h2 className="text-xl font-bold text-gray-900">{selectedClub.name}</h2>
+                  </div>
+                  {isOwner && (
+                    <button
+                      onClick={() => setIsModalOpen(true)}
+                      className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#C0392B] text-white text-sm font-semibold shadow-sm hover:bg-[#a93226] active:scale-95 transition-all"
+                    >
+                      <Upload size={15} />
+                      자료 업로드
+                    </button>
+                  )}
                 </div>
-                {isOwner && (
-                  <button
-                    onClick={() => console.log('업로드 모달 열기')}
-                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#C0392B] text-white text-sm font-semibold shadow-sm hover:bg-[#a93226] active:scale-95 transition-all"
-                  >
-                    <Upload size={15} />
-                    자료 업로드
-                  </button>
-                )}
+                <p className="text-sm text-gray-400">
+                  {selectedClub.name} 동아리의 소중한 기록들입니다. 활동 사진, 문서, 프로젝트 자료를 한눈에 열람하세요.
+                </p>
               </div>
-              <p className="text-sm text-gray-400">
-                {selectedClub.name} 동아리의 소중한 기록들입니다. 활동 사진, 문서, 프로젝트 자료를 한눈에 열람하세요.
-              </p>
+
+              {loading && (
+                <div className="flex items-center justify-center h-48 gap-2 text-gray-400">
+                  <Loader2 size={20} className="animate-spin" />
+                  <span className="text-sm">불러오는 중...</span>
+                </div>
+              )}
+
+              {!loading && archives.length === 0 && (
+                <div className="flex flex-col items-center justify-center h-48 gap-3 text-center">
+                  <div className="w-14 h-14 rounded-full bg-gray-100 flex items-center justify-center">
+                    <FolderOpen size={26} className="text-gray-300" />
+                  </div>
+                  <p className="text-sm font-medium text-gray-500">아직 등록된 자료가 없습니다.</p>
+                  <p className="text-xs text-gray-400">활동 사진, 문서, 기록을 업로드해 보세요.</p>
+                </div>
+              )}
+
+              {!loading && archives.length > 0 && (
+                <div className="columns-2 md:columns-3 gap-4 space-y-4">
+                  {archives.map(item => (
+                    <GalleryCard key={item.id} item={item} />
+                  ))}
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="flex flex-col items-center justify-center h-64 gap-3 text-gray-300">
+              <BookOpen size={40} />
+              <p className="text-sm text-gray-400">좌측에서 동아리를 선택하세요.</p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ── 업로드 모달 ─────────────────────────────────────────── */}
+      {isModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+          {/* 배경 딤 */}
+          <div
+            className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+            onClick={handleCloseModal}
+          />
+
+          {/* 모달 본체 */}
+          <div className="relative w-full max-w-md bg-white rounded-2xl shadow-2xl overflow-hidden">
+            {/* 모달 헤더 */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+              <div>
+                <h3 className="text-base font-bold text-gray-900">자료 업로드</h3>
+                <p className="text-xs text-gray-400 mt-0.5">{selectedClub?.name}</p>
+              </div>
+              <button
+                onClick={handleCloseModal}
+                className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors"
+              >
+                <X size={18} />
+              </button>
             </div>
 
-            {/* 로딩 */}
-            {loading && (
-              <div className="flex items-center justify-center h-48 gap-2 text-gray-400">
-                <Loader2 size={20} className="animate-spin" />
-                <span className="text-sm">불러오는 중...</span>
-              </div>
-            )}
+            {/* 모달 폼 */}
+            <div className="px-6 py-5 flex flex-col gap-4">
 
-            {/* 데이터 없음 */}
-            {!loading && archives.length === 0 && (
-              <div className="flex flex-col items-center justify-center h-48 gap-3 text-center">
-                <div className="w-14 h-14 rounded-full bg-gray-100 flex items-center justify-center">
-                  <FolderOpen size={26} className="text-gray-300" />
+              {/* 자료 제목 */}
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 mb-1.5">
+                  자료 제목 <span className="text-[#C0392B]">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={formTitle}
+                  onChange={e => setFormTitle(e.target.value)}
+                  placeholder="예: 2024 정기공연 현장 사진"
+                  className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-800 placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-[#C0392B]/30 focus:border-[#C0392B] transition"
+                />
+              </div>
+
+              {/* 활동 날짜 */}
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 mb-1.5">
+                  활동 날짜 <span className="text-[#C0392B]">*</span>
+                </label>
+                <input
+                  type="date"
+                  value={formDate}
+                  onChange={e => setFormDate(e.target.value)}
+                  className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#C0392B]/30 focus:border-[#C0392B] transition"
+                />
+              </div>
+
+              {/* 이미지 URL */}
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 mb-1.5">
+                  이미지 URL <span className="text-gray-400 font-normal">(선택)</span>
+                </label>
+                <input
+                  type="url"
+                  value={formThumbnail}
+                  onChange={e => setFormThumbnail(e.target.value)}
+                  placeholder="https://..."
+                  className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-800 placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-[#C0392B]/30 focus:border-[#C0392B] transition"
+                />
+              </div>
+
+              {/* 간단 설명 */}
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 mb-1.5">
+                  간단 설명 <span className="text-gray-400 font-normal">(선택)</span>
+                </label>
+                <textarea
+                  value={formDescription}
+                  onChange={e => setFormDescription(e.target.value)}
+                  placeholder="자료에 대한 간단한 설명을 입력하세요."
+                  rows={2}
+                  className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-800 placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-[#C0392B]/30 focus:border-[#C0392B] transition resize-none"
+                />
+              </div>
+
+              {/* 태그 선택 */}
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 mb-1.5">태그</label>
+                <div className="flex flex-wrap gap-1.5">
+                  {PRESET_TAGS.map(tag => (
+                    <button
+                      key={tag}
+                      type="button"
+                      onClick={() => toggleTag(tag)}
+                      className={`px-3 py-1 rounded-full text-xs font-medium transition-colors
+                        ${formTags.includes(tag)
+                          ? 'bg-[#C0392B] text-white'
+                          : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
+                    >
+                      {tag}
+                    </button>
+                  ))}
                 </div>
-                <p className="text-sm font-medium text-gray-500">아직 등록된 자료가 없습니다.</p>
-                <p className="text-xs text-gray-400">활동 사진, 문서, 기록을 업로드해 보세요.</p>
               </div>
-            )}
+            </div>
 
-            {/* 갤러리 그리드 */}
-            {!loading && archives.length > 0 && (
-              <div className="columns-2 md:columns-3 gap-4 space-y-4">
-                {archives.map(item => (
-                  <GalleryCard key={item.id} item={item} />
-                ))}
-              </div>
-            )}
-          </>
-        ) : (
-          <div className="flex flex-col items-center justify-center h-64 gap-3 text-gray-300">
-            <BookOpen size={40} />
-            <p className="text-sm text-gray-400">좌측에서 동아리를 선택하세요.</p>
+            {/* 모달 하단 버튼 */}
+            <div className="flex gap-2 px-6 pb-5">
+              <button
+                onClick={handleCloseModal}
+                className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm font-medium text-gray-500 hover:bg-gray-50 transition-colors"
+              >
+                취소
+              </button>
+              <button
+                onClick={handleUpload}
+                disabled={uploading}
+                className="flex-1 py-2.5 rounded-xl bg-[#C0392B] text-white text-sm font-semibold hover:bg-[#a93226] disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2"
+              >
+                {uploading
+                  ? <><Loader2 size={14} className="animate-spin" />업로드 중...</>
+                  : <><Upload size={14} />업로드</>}
+              </button>
+            </div>
           </div>
-        )}
-      </div>
-    </div>
+        </div>
+      )}
+    </>
   )
 }
 
@@ -174,20 +359,14 @@ function GalleryCard({ item }: { item: ArchiveItem }) {
 
   return (
     <div className="break-inside-avoid rounded-2xl border border-gray-200 bg-white overflow-hidden shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all cursor-pointer group mb-4">
-      {/* 썸네일 */}
       {item.thumbnail_url ? (
-        <img
-          src={item.thumbnail_url}
-          alt={item.title}
-          className="w-full object-cover"
-        />
+        <img src={item.thumbnail_url} alt={item.title} className="w-full object-cover" />
       ) : (
         <div className="w-full h-36 bg-gray-100 flex items-center justify-center">
           <ImageOff size={28} className="text-gray-300" />
         </div>
       )}
 
-      {/* 카드 정보 */}
       <div className="p-3">
         <p className="text-sm font-semibold text-gray-800 leading-snug mb-2 group-hover:text-[#C0392B] transition-colors">
           {item.title}
