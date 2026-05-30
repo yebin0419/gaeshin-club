@@ -70,7 +70,7 @@ export default function PostDetailPage() {
         .eq('post_id', postId)
         .order('created_at', { ascending: true })
 
-      setComments((data as Comment[]) ?? [])
+      setComments((data as unknown as Comment[]) ?? [])
       setCommentsLoading(false)
     }
 
@@ -84,7 +84,7 @@ export default function PostDetailPage() {
       .select('id, content, created_at, author:users(name)')
       .eq('post_id', postId)
       .order('created_at', { ascending: true })
-    setComments((data as Comment[]) ?? [])
+    setComments((data as unknown as Comment[]) ?? [])
   }
 
   const handleSubmit = async () => {
@@ -140,6 +140,7 @@ export default function PostDetailPage() {
 
         {/* 본문 카드 */}
         <div className="bg-white rounded-2xl border border-gray-200 p-5 mb-4">
+          <div style={{ background: 'red', color: 'white', padding: '20px', fontSize: '30px', fontWeight: 'bold' }}>화면 업데이트 테스트!!!</div>
           <div className="flex items-center gap-2 mb-3">
             {post.is_pinned && <Pin size={13} className="text-[#C0392B]" />}
             {post.type === 'notice'  && <Badge variant="primary">공지</Badge>}
