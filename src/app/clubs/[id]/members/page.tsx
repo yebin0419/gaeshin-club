@@ -35,11 +35,17 @@ export default async function MembersPage({ params }: { params: Promise<{ id: st
     .eq('status', 'pending')
     .order('created_at', { ascending: false })
 
-  const { data: members } = await supabase
+  const { data: members, error: membersError } = await supabase
     .from('club_members')
     .select('*, user:users(name, department, student_id)')
     .eq('club_id', id)
     .order('joined_at', { ascending: false })
+
+  console.log('[MembersPage] club_id:', id)
+  console.log('[MembersPage] user.id:', user.id)
+  console.log('[MembersPage] myMembership:', myMembership)
+  console.log('[MembersPage] isGlobalAdmin:', isGlobalAdmin)
+  console.log('[MembersPage] members 조회 결과:', members?.length, '명 / error:', membersError?.message)
 
   // 전역 관리자는 myRole을 'owner'로 강제
   const myRole = isGlobalAdmin ? 'owner' : (myMembership?.role ?? 'member')

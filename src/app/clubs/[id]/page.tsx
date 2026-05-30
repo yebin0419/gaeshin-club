@@ -11,10 +11,13 @@ export default async function ClubDetailPage({ params }: { params: Promise<{ id:
   const { data: club } = await supabase.from('clubs').select('*').eq('id', id).single()
   if (!club) notFound()
 
-  const { count: memberCount } = await supabase
+  const { count: memberCount, error: countError } = await supabase
     .from('club_members')
     .select('*', { count: 'exact', head: true })
     .eq('club_id', id)
+
+  console.log('[ClubDetail] club_id:', id)
+  console.log('[ClubDetail] memberCount:', memberCount, '/ error:', countError?.message)
 
   // membership은 클라이언트에서 직접 조회 (브라우저 세션 사용)
   return <ClubDetailClient club={club} memberCount={memberCount ?? 0} />
