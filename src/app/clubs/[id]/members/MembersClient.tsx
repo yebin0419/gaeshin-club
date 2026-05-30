@@ -38,6 +38,12 @@ const roleBadge: Record<string, 'primary' | 'warning' | 'default' | 'outline'> =
 }
 
 export default function MembersClient({ clubId, clubName, applications: initApps, members: initMembers, myRole }: Props) {
+  console.log('1. clubId:', clubId)
+  console.log('2. myRole (서버에서 전달된 권한):', myRole)
+  console.log('3. isOwner 계산값:', myRole === 'owner')
+  console.log('4. 불러온 멤버 리스트 데이터:', initMembers)
+  console.log('5. 가입 신청 목록:', initApps)
+
   const router = useRouter()
   const supabase = createClient()
   const [applications, setApplications] = useState(initApps)
