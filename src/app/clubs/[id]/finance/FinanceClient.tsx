@@ -2,11 +2,10 @@
 
 import { useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, Plus, TrendingUp, TrendingDown, Receipt } from 'lucide-react'
+import { ArrowLeft, Plus, TrendingUp, TrendingDown, Receipt, Trash2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
-import Badge from '@/components/ui/Badge'
 import { Finance, FinanceType } from '@/types'
 
 interface Props {
@@ -15,13 +14,15 @@ interface Props {
   finances: Finance[]
   balance: number
   isStaff: boolean
+  isOwner: boolean
 }
 
-export default function FinanceClient({ clubId, clubName, finances, balance, isStaff }: Props) {
+export default function FinanceClient({ clubId, clubName, finances: initialFinances, isStaff, isOwner }: Props) {
   const router = useRouter()
   const supabase = createClient()
   const fileRef = useRef<HTMLInputElement>(null)
 
+  const [list, setList] = useState<Finance[]>(initialFinances)
   const [showForm, setShowForm] = useState(false)
   const [type, setType] = useState<FinanceType>('income')
   const [amount, setAmount] = useState('')
@@ -29,6 +30,12 @@ export default function FinanceClient({ clubId, clubName, finances, balance, isS
   const [receiptFile, setReceiptFile] = useState<File | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+
+  // 잔액을 로컬 상태 기반으로 재계산
+  const balance = list.reduce((acc, f) =>
+    f.type === 'income' ? acc + f.amount : acc - f.amount, 0)
+
+  const fmt = (n: number) => n.toLocaleString('ko-KR') + '원'
 
   const handleAdd = async () => {
     if (!amount || !description) { setError('금액과 내용을 입력해 주세요.'); return }
@@ -44,17 +51,26 @@ export default function FinanceClient({ clubId, clubName, finances, balance, isS
       receipt_url = data.publicUrl
     }
 
-    const { error: err } = await supabase.from('finances').insert({
+    const { data: inserted, error: err } = await supabase.from('finances').insert({
       club_id: clubId, type, amount: parseInt(amount), description,
       receipt_url, created_by: user?.id,
-    })
+    }).select().single()
+
     if (err) { setError('저장 중 오류가 발생했습니다.'); setLoading(false); return }
+
+    setList(prev => [inserted as Finance, ...prev])
     setShowForm(false); setAmount(''); setDescription(''); setReceiptFile(null)
-    router.refresh()
     setLoading(false)
   }
 
-  const fmt = (n: number) => n.toLocaleString('ko-KR') + '원'
+  const handleDelete = async (id: string) => {
+    if (!window.confirm('정말 이 내역을 삭제하시겠습니까?')) return
+
+    const { error: err } = await supabase.from('finances').delete().eq('id', id)
+    if (err) { alert(`삭제 중 오류가 발생했습니다.\n${err.message}`); return }
+
+    setList(prev => prev.filter(f => f.id !== id))
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -103,7 +119,7 @@ export default function FinanceClient({ clubId, clubName, finances, balance, isS
 
         {/* 내역 목록 */}
         <div className="flex flex-col gap-2">
-          {finances.length > 0 ? finances.map((f: Finance) => (
+          {list.length > 0 ? list.map((f: Finance) => (
             <div key={f.id} className="bg-white rounded-xl border border-gray-200 p-4 flex items-center gap-3">
               <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0
                 ${f.type === 'income' ? 'bg-green-100' : 'bg-red-100'}`}>
@@ -113,12 +129,23 @@ export default function FinanceClient({ clubId, clubName, finances, balance, isS
                 <p className="text-sm font-medium text-gray-800 truncate">{f.description}</p>
                 <p className="text-xs text-gray-400">{new Date(f.created_at).toLocaleDateString('ko-KR')}</p>
               </div>
-              <div className="text-right flex-shrink-0">
-                <p className={`font-bold ${f.type === 'income' ? 'text-green-600' : 'text-red-500'}`}>
-                  {f.type === 'income' ? '+' : '-'}{fmt(f.amount)}
-                </p>
-                {f.receipt_url && (
-                  <a href={f.receipt_url} target="_blank" rel="noopener noreferrer" className="text-xs text-[#C0392B] hover:underline">영수증</a>
+              <div className="text-right flex-shrink-0 flex items-center gap-3">
+                <div>
+                  <p className={`font-bold ${f.type === 'income' ? 'text-green-600' : 'text-red-500'}`}>
+                    {f.type === 'income' ? '+' : '-'}{fmt(f.amount)}
+                  </p>
+                  {f.receipt_url && (
+                    <a href={f.receipt_url} target="_blank" rel="noopener noreferrer" className="text-xs text-[#C0392B] hover:underline">영수증</a>
+                  )}
+                </div>
+                {isOwner && (
+                  <button
+                    onClick={() => handleDelete(f.id)}
+                    className="p-1.5 rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors"
+                    title="삭제"
+                  >
+                    <Trash2 size={15} />
+                  </button>
                 )}
               </div>
             </div>

@@ -26,6 +26,7 @@ export default async function FinancePage({ params }: { params: Promise<{ id: st
     f.type === 'income' ? acc + f.amount : acc - f.amount, 0)
 
   const isStaff = membership?.role === 'owner' || membership?.role === 'staff'
+  const isOwner = membership?.role === 'owner'
 
-  return <FinanceClient clubId={id} clubName={club.name} finances={finances ?? []} balance={balance} isStaff={isStaff} />
+  return <FinanceClient clubId={id} clubName={club.name} finances={finances ?? []} balance={balance} isStaff={isStaff} isOwner={isOwner} />
 }
