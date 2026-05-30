@@ -36,7 +36,8 @@ interface Props {
 }
 
 export default function ArchiveClient({ clubs }: Props) {
-  const [selectedClub, setSelectedClub] = useState<Club | null>(clubs[0] ?? null)
+  const uniqueClubs = Array.from(new Map(clubs.map(c => [c.id, c])).values())
+  const [selectedClub, setSelectedClub] = useState<Club | null>(uniqueClubs[0] ?? null)
   const [archives, setArchives] = useState<ArchiveItem[]>([])
   const [loading, setLoading] = useState(false)
 
@@ -61,7 +62,7 @@ export default function ArchiveClient({ clubs }: Props) {
       <aside className="w-52 shrink-0 border-r border-gray-200 pr-4 mr-4">
         <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3 px-1">동아리</p>
         <div className="flex flex-col gap-0.5">
-          {clubs.map(club => (
+          {uniqueClubs.map(club => (
             <button
               key={club.id}
               onClick={() => handleSelectClub(club)}
