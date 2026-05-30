@@ -96,7 +96,7 @@ export default function ClubDetailClient({ club, memberCount }: Props) {
       <div className="max-w-2xl mx-auto px-4 pb-24">
         {/* 헤더 */}
         <div className="sticky top-0 bg-gray-50 z-10 flex items-center gap-3 py-4">
-          <button onClick={() => router.push('/home')} className="p-1 text-gray-500 hover:text-[#C0392B]">
+          <button onClick={() => { window.location.href = '/home' }} className="p-1 text-gray-500 hover:text-[#C0392B]">
             <ArrowLeft size={22} />
           </button>
           <h1 className="font-bold text-lg text-gray-900 truncate">{club.name}</h1>

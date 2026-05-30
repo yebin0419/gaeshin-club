@@ -1,4 +1,5 @@
 export const dynamic = 'force-dynamic'
+export const revalidate = 0
 
 import { createClient } from '@/lib/supabase/server'
 import ClubCard from '@/components/clubs/ClubCard'
