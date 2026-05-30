@@ -83,6 +83,9 @@ export default function ClubDetailClient({ club, memberCount }: Props) {
     if (error) {
       console.error('DB 업데이트 에러:', error)
       setError(`모집 상태 변경 실패: ${error.message}`)
+    } else if (!data || data.length === 0) {
+      console.error('DB 업데이트 에러: RLS 정책에 의해 차단됨 (0 rows updated)')
+      setError('권한 오류: 모집 상태를 변경할 수 없습니다. (RLS)')
     } else {
       setIsRecruiting(next)
       router.refresh()
