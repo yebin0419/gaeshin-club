@@ -71,12 +71,19 @@ export default function ClubDetailClient({ club, memberCount }: Props) {
 
   const handleToggleRecruiting = async () => {
     setRecruitingLoading(true)
+    setError('')
     const next = !isRecruiting
-    const { error } = await supabase
+    console.log('[토글] club.id:', club.id, '변경할 값:', next)
+    const { error, data } = await supabase
       .from('clubs')
       .update({ is_recruiting: next })
       .eq('id', club.id)
-    if (!error) {
+      .select()
+    console.log('[토글] 결과 data:', data, 'error:', error)
+    if (error) {
+      console.error('DB 업데이트 에러:', error)
+      setError(`모집 상태 변경 실패: ${error.message}`)
+    } else {
       setIsRecruiting(next)
       router.refresh()
     }
