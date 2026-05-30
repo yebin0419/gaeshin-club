@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Users, ArrowLeft } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
@@ -15,12 +15,10 @@ const categoryEmoji: Record<string, string> = {
 
 interface Props {
   club: Club
-  membership: { role: string } | null
   memberCount: number
-  userId?: string
 }
 
-export default function ClubDetailClient({ club, membership, memberCount, userId }: Props) {
+export default function ClubDetailClient({ club, memberCount }: Props) {
   const router = useRouter()
   const supabase = createClient()
   const [applying, setApplying] = useState(false)
@@ -29,6 +27,41 @@ export default function ClubDetailClient({ club, membership, memberCount, userId
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
   const [error, setError] = useState('')
+
+  const [membership, setMembership] = useState<{ role: string } | null>(null)
+  const [userId, setUserId] = useState<string | null>(null)
+  const [authLoading, setAuthLoading] = useState(true)
+
+  useEffect(() => {
+    const fetchMembership = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+
+      // [디버그] F12 콘솔에서 확인
+      console.log('[ClubDetailClient] 요청하는 ID들:', {
+        club_id: club.id,
+        user_id: user?.id ?? 'null → 로그인 세션 없음',
+      })
+
+      if (!user) { setAuthLoading(false); return }
+
+      setUserId(user.id)
+
+      const { data, error: membershipError } = await supabase
+        .from('club_members')
+        .select('role')
+        .eq('club_id', club.id)
+        .eq('user_id', user.id)
+        .single()
+
+      console.log('[ClubDetailClient] DB에서 가져온 내 권한:', data?.role ?? '없음(null)')
+      console.log('[ClubDetailClient] membership 쿼리 에러:', membershipError)
+
+      setMembership(data)
+      setAuthLoading(false)
+    }
+
+    fetchMembership()
+  }, [club.id])
 
   const handleApply = async () => {
     if (!contact) { setError('연락처를 입력해 주세요.'); return }
@@ -41,12 +74,16 @@ export default function ClubDetailClient({ club, membership, memberCount, userId
     setLoading(false)
   }
 
-  // [디버그] 브라우저 F12 콘솔에서 확인
-  console.log('[ClubDetailClient] 서버에서 받은 userId:', userId ?? '없음(null) → 서버에서 로그인 세션을 못 읽은 것')
-  console.log('[ClubDetailClient] DB에서 가져온 내 권한:', membership?.role ?? '없음(null)')
-
   const isMember = !!membership
   const isOwnerOrStaff = membership?.role === 'owner' || membership?.role === 'staff'
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <p className="text-sm text-gray-400">로딩 중...</p>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
