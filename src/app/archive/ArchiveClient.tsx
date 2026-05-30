@@ -81,7 +81,15 @@ export default function ArchiveClient({ clubs }: Props) {
     ]).then(([clubRes, userRes]) => {
       const isClubOwner = !!clubRes.data
       const isAppAdmin = userRes.data?.role === 'app_admin'
-      setIsOwner(isClubOwner || isAppAdmin)
+      const result = isClubOwner || isAppAdmin
+
+      console.log('1. 현재 로그인한 유저 ID:', userId)
+      console.log('2. 현재 선택된 동아리 ID:', selectedClub?.id, '/ 동아리명:', selectedClub?.name)
+      console.log('3. 현재 로그인한 유저의 Role (users 테이블):', userRes.data?.role)
+      console.log('4. 이 동아리의 club_members 조회 결과:', clubRes.data)
+      console.log('5. 최종 관리자 권한 결과 (isOwner):', result)
+
+      setIsOwner(result)
     })
   }, [selectedClub?.id, userId])
 
