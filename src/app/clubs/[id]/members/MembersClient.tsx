@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, Check, X } from 'lucide-react'
+import { ArrowLeft, Check, X, Trash2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import Button from '@/components/ui/Button'
 import Badge from '@/components/ui/Badge'
@@ -37,10 +37,11 @@ const roleBadge: Record<string, 'primary' | 'warning' | 'default' | 'outline'> =
   owner: 'primary', staff: 'warning', member: 'default', alumni: 'outline',
 }
 
-export default function MembersClient({ clubId, clubName, applications: initApps, members, myRole }: Props) {
+export default function MembersClient({ clubId, clubName, applications: initApps, members: initMembers, myRole }: Props) {
   const router = useRouter()
   const supabase = createClient()
   const [applications, setApplications] = useState(initApps)
+  const [memberList, setMemberList] = useState(initMembers)
   const [rejectReason, setRejectReason] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState<string | null>(null)
 
@@ -65,7 +66,14 @@ export default function MembersClient({ clubId, clubName, applications: initApps
 
   const changeRole = async (memberId: string, userId: string, newRole: string) => {
     await supabase.from('club_members').update({ role: newRole }).eq('id', memberId)
-    router.refresh()
+    setMemberList(prev => prev.map(m => m.id === memberId ? { ...m, role: newRole } : m))
+  }
+
+  const removeMember = async (memberId: string, name: string) => {
+    if (!window.confirm(`정말 '${name}' 멤버를 내보내시겠습니까?`)) return
+    const { error } = await supabase.from('club_members').delete().eq('id', memberId)
+    if (error) { alert(`삭제 중 오류가 발생했습니다.\n${error.message}`); return }
+    setMemberList(prev => prev.filter(m => m.id !== memberId))
   }
 
   return (
@@ -116,9 +124,9 @@ export default function MembersClient({ clubId, clubName, applications: initApps
 
         {/* 현재 멤버 목록 */}
         <div>
-          <h2 className="text-sm font-semibold text-gray-700 mb-2">전체 멤버 ({members.length})</h2>
+          <h2 className="text-sm font-semibold text-gray-700 mb-2">전체 멤버 ({memberList.length})</h2>
           <div className="flex flex-col gap-2">
-            {members.map(m => (
+            {memberList.map(m => (
               <div key={m.id} className="bg-white rounded-xl border border-gray-200 p-4 flex items-center justify-between">
                 <div>
                   <p className="font-medium text-gray-900 text-sm">{m.user?.name}</p>
@@ -127,15 +135,24 @@ export default function MembersClient({ clubId, clubName, applications: initApps
                 <div className="flex items-center gap-2">
                   <Badge variant={roleBadge[m.role] ?? 'default'}>{roleLabel[m.role] ?? m.role}</Badge>
                   {myRole === 'owner' && m.role !== 'owner' && (
-                    <select
-                      value={m.role}
-                      onChange={e => changeRole(m.id, m.user_id, e.target.value)}
-                      className="text-xs border border-gray-200 rounded-lg px-2 py-1 focus:outline-none focus:border-[#C0392B]"
-                    >
-                      <option value="staff">임원진</option>
-                      <option value="member">일반 부원</option>
-                      <option value="alumni">졸업/휴학</option>
-                    </select>
+                    <>
+                      <select
+                        value={m.role}
+                        onChange={e => changeRole(m.id, m.user_id, e.target.value)}
+                        className="text-xs border border-gray-200 rounded-lg px-2 py-1 focus:outline-none focus:border-[#C0392B]"
+                      >
+                        <option value="staff">임원진</option>
+                        <option value="member">일반 부원</option>
+                        <option value="alumni">졸업/휴학</option>
+                      </select>
+                      <button
+                        onClick={() => removeMember(m.id, m.user?.name ?? '멤버')}
+                        className="p-1.5 rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors"
+                        title="내보내기"
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    </>
                   )}
                 </div>
               </div>
