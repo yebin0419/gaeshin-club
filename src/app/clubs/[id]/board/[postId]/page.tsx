@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { ArrowLeft, Pin, BarChart2 } from 'lucide-react'
 import Badge from '@/components/ui/Badge'
 import { Post } from '@/types'
+import PostComments from './PostComments'
 
 type PostWithAuthor = Post & { author: { name: string } | null }
 
@@ -65,6 +66,9 @@ export default async function PostDetailPage({
           {/* 내용 */}
           <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">{post.content}</p>
         </div>
+
+        {/* 댓글 */}
+        <PostComments postId={postId} />
       </div>
     </div>
   )
