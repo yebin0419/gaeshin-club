@@ -30,6 +30,8 @@ export default function ClubDetailClient({ club, memberCount }: Props) {
   const [membership, setMembership] = useState<{ role: string } | null>(null)
   const [userId, setUserId] = useState<string | null>(null)
   const [authLoading, setAuthLoading] = useState(true)
+  const [isRecruiting, setIsRecruiting] = useState(club.is_recruiting)
+  const [recruitingLoading, setRecruitingLoading] = useState(false)
 
   useEffect(() => {
     const fetchMembership = async () => {
@@ -64,7 +66,19 @@ export default function ClubDetailClient({ club, memberCount }: Props) {
   }
 
   const isMember = !!membership
-  const isOwnerOrStaff = membership?.role === 'owner' || membership?.role === 'staff'
+  const isOwner = membership?.role === 'owner'
+  const isOwnerOrStaff = isOwner || membership?.role === 'staff'
+
+  const handleToggleRecruiting = async () => {
+    setRecruitingLoading(true)
+    const next = !isRecruiting
+    const { error } = await supabase
+      .from('clubs')
+      .update({ is_recruiting: next })
+      .eq('id', club.id)
+    if (!error) setIsRecruiting(next)
+    setRecruitingLoading(false)
+  }
 
   if (authLoading) {
     return (
@@ -92,13 +106,28 @@ export default function ClubDetailClient({ club, memberCount }: Props) {
           <p className="text-sm text-gray-500 text-center mb-4">{club.category} 분과</p>
 
           <div className="flex justify-center gap-3 mb-4">
-            <Badge variant={club.is_recruiting ? 'primary' : 'default'} className="text-sm px-3 py-1">
-              {club.is_recruiting ? '모집 중' : '모집 마감'}
+            <Badge variant={isRecruiting ? 'primary' : 'default'} className="text-sm px-3 py-1">
+              {isRecruiting ? '모집 중' : '모집 마감'}
             </Badge>
             <Badge variant="outline" className="text-sm px-3 py-1">
               <Users size={12} className="inline mr-1" />{memberCount}명
             </Badge>
           </div>
+
+          {isOwner && (
+            <div className="flex justify-center mb-2">
+              <button
+                onClick={handleToggleRecruiting}
+                disabled={recruitingLoading}
+                className={`text-xs font-medium px-4 py-1.5 rounded-full border transition-colors disabled:opacity-50
+                  ${isRecruiting
+                    ? 'border-gray-300 text-gray-500 hover:bg-gray-100'
+                    : 'border-[#C0392B] text-[#C0392B] hover:bg-[#FADBD8]'}`}
+              >
+                {recruitingLoading ? '변경 중...' : isRecruiting ? '모집 마감으로 변경' : '모집 중으로 변경'}
+              </button>
+            </div>
+          )}
 
           {club.description && (
             <p className="text-sm text-gray-600 leading-relaxed bg-gray-50 rounded-lg p-3">{club.description}</p>
