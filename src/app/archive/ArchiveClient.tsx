@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { BookOpen, Calendar, Tag, ImageOff, Loader2, FolderOpen } from 'lucide-react'
+import { useState, useEffect, useMemo } from 'react'
+import { BookOpen, Calendar, Tag, ImageOff, Loader2, FolderOpen, Upload } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Club } from '@/types'
 
@@ -36,11 +36,35 @@ interface Props {
 }
 
 export default function ArchiveClient({ clubs }: Props) {
+  const supabase = useMemo(() => createClient(), [])
   const uniqueClubs = Array.from(new Map(clubs.map(c => [c.name, c])).values())
   const [selectedClub, setSelectedClub] = useState<Club | null>(uniqueClubs[0] ?? null)
   const [archives, setArchives] = useState<ArchiveItem[]>([])
   const [loading, setLoading] = useState(false)
+  const [userId, setUserId] = useState<string | null>(null)
+  const [isOwner, setIsOwner] = useState(false)
 
+  // 로그인한 유저 ID를 한 번만 가져옴
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      setUserId(data.user?.id ?? null)
+    })
+  }, [])
+
+  // 선택된 동아리 + 유저가 바뀔 때마다 방장 여부 확인
+  useEffect(() => {
+    if (!selectedClub || !userId) { setIsOwner(false); return }
+    supabase
+      .from('club_members')
+      .select('role')
+      .eq('club_id', selectedClub.id)
+      .eq('user_id', userId)
+      .eq('role', 'owner')
+      .maybeSingle()
+      .then(({ data }) => setIsOwner(!!data))
+  }, [selectedClub?.id, userId])
+
+  // 선택된 동아리의 아카이브 목록 로드
   useEffect(() => {
     if (!selectedClub) return
     setLoading(true)
@@ -84,9 +108,20 @@ export default function ArchiveClient({ clubs }: Props) {
           <>
             {/* 헤더 */}
             <div className="mb-6">
-              <div className="flex items-center gap-2 mb-1">
-                <span className="text-2xl">{categoryEmoji[selectedClub.category] ?? '🏫'}</span>
-                <h2 className="text-xl font-bold text-gray-900">{selectedClub.name}</h2>
+              <div className="flex items-center justify-between gap-2 mb-1">
+                <div className="flex items-center gap-2">
+                  <span className="text-2xl">{categoryEmoji[selectedClub.category] ?? '🏫'}</span>
+                  <h2 className="text-xl font-bold text-gray-900">{selectedClub.name}</h2>
+                </div>
+                {isOwner && (
+                  <button
+                    onClick={() => console.log('업로드 모달 열기')}
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#C0392B] text-white text-sm font-semibold shadow-sm hover:bg-[#a93226] active:scale-95 transition-all"
+                  >
+                    <Upload size={15} />
+                    자료 업로드
+                  </button>
+                )}
               </div>
               <p className="text-sm text-gray-400">
                 {selectedClub.name} 동아리의 소중한 기록들입니다. 활동 사진, 문서, 프로젝트 자료를 한눈에 열람하세요.
