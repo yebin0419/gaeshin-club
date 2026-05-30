@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { Users, ArrowLeft } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
@@ -20,6 +20,8 @@ interface Props {
 
 export default function ClubDetailClient({ club, memberCount }: Props) {
   const router = useRouter()
+  // useMemo로 컴포넌트 생애주기 동안 단 한 번만 생성
+  const supabase = useMemo(() => createClient(), [])
   const [showForm, setShowForm] = useState(false)
   const [contact, setContact] = useState('')
   const [loading, setLoading] = useState(false)
@@ -30,9 +32,6 @@ export default function ClubDetailClient({ club, memberCount }: Props) {
   const [authLoading, setAuthLoading] = useState(true)
 
   useEffect(() => {
-    // supabase를 effect 안에서 생성 — 렌더마다 새 클라이언트/리스너가 생기는 무한루프 방지
-    const supabase = createClient()
-
     const fetchMembership = async () => {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { setAuthLoading(false); return }
@@ -56,7 +55,6 @@ export default function ClubDetailClient({ club, memberCount }: Props) {
   const handleApply = async () => {
     if (!contact) { setError('연락처를 입력해 주세요.'); return }
     setLoading(true)
-    const supabase = createClient()
     const { error: err } = await supabase.from('club_applications').insert({
       club_id: club.id, user_id: userId, contact, status: 'pending',
     })
