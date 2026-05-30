@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useMemo } from 'react'
-import { BookOpen, Calendar, Tag, ImageOff, Loader2, FolderOpen, Upload, X } from 'lucide-react'
+import { BookOpen, Calendar, Tag, ImageOff, Loader2, FolderOpen, Upload, X, ImagePlus } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Club } from '@/types'
 
@@ -50,7 +50,8 @@ export default function ArchiveClient({ clubs }: Props) {
   // 폼 상태
   const [formTitle, setFormTitle] = useState('')
   const [formDate, setFormDate] = useState('')
-  const [formThumbnail, setFormThumbnail] = useState('')
+  const [formFile, setFormFile] = useState<File | null>(null)
+  const [formPreview, setFormPreview] = useState<string | null>(null)
   const [formDescription, setFormDescription] = useState('')
   const [formTags, setFormTags] = useState<string[]>([])
   const [uploading, setUploading] = useState(false)
@@ -93,9 +94,22 @@ export default function ArchiveClient({ clubs }: Props) {
   const resetForm = () => {
     setFormTitle('')
     setFormDate('')
-    setFormThumbnail('')
+    setFormFile(null)
+    setFormPreview(null)
     setFormDescription('')
     setFormTags([])
+  }
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0] ?? null
+    setFormFile(file)
+    if (file) {
+      const reader = new FileReader()
+      reader.onloadend = () => setFormPreview(reader.result as string)
+      reader.readAsDataURL(file)
+    } else {
+      setFormPreview(null)
+    }
   }
 
   const handleCloseModal = () => {
@@ -115,13 +129,35 @@ export default function ArchiveClient({ clubs }: Props) {
     if (!selectedClub || !userId) { alert('동아리 또는 로그인 정보를 확인해 주세요.'); return }
 
     setUploading(true)
-    const year = new Date(formDate).getFullYear()
 
+    // 1. 이미지 파일이 있으면 Storage에 먼저 업로드
+    let thumbnailUrl: string | null = null
+    if (formFile) {
+      const ext = formFile.name.split('.').pop()
+      const fileName = `${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`
+      const { error: storageError } = await supabase.storage
+        .from('archive_images')
+        .upload(fileName, formFile, { cacheControl: '3600', upsert: false })
+
+      if (storageError) {
+        setUploading(false)
+        alert(`이미지 업로드에 실패했습니다.\n${storageError.message}`)
+        return
+      }
+
+      const { data: urlData } = supabase.storage
+        .from('archive_images')
+        .getPublicUrl(fileName)
+      thumbnailUrl = urlData.publicUrl
+    }
+
+    // 2. archives 테이블에 insert
+    const year = new Date(formDate).getFullYear()
     const { error } = await supabase.from('archives').insert({
       club_id: selectedClub.id,
       title: formTitle.trim(),
       description: formDescription.trim() || null,
-      thumbnail_url: formThumbnail.trim() || null,
+      thumbnail_url: thumbnailUrl,
       file_url: null,
       year,
       tags: formTags,
@@ -131,7 +167,7 @@ export default function ArchiveClient({ clubs }: Props) {
     setUploading(false)
 
     if (error) {
-      alert(`업로드에 실패했습니다.\n${error.message}`)
+      alert(`자료 저장에 실패했습니다.\n${error.message}`)
       return
     }
 
@@ -278,18 +314,34 @@ export default function ArchiveClient({ clubs }: Props) {
                 />
               </div>
 
-              {/* 이미지 URL */}
+              {/* 이미지 파일 업로드 */}
               <div>
                 <label className="block text-xs font-semibold text-gray-600 mb-1.5">
-                  이미지 URL <span className="text-gray-400 font-normal">(선택)</span>
+                  이미지 <span className="text-gray-400 font-normal">(선택)</span>
                 </label>
-                <input
-                  type="url"
-                  value={formThumbnail}
-                  onChange={e => setFormThumbnail(e.target.value)}
-                  placeholder="https://..."
-                  className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-800 placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-[#C0392B]/30 focus:border-[#C0392B] transition"
-                />
+                <label className={`flex flex-col items-center justify-center w-full rounded-xl border-2 border-dashed cursor-pointer transition-colors overflow-hidden
+                  ${formPreview ? 'border-transparent' : 'border-gray-200 hover:border-[#C0392B]/40 hover:bg-[#C0392B]/5'}`}>
+                  {formPreview ? (
+                    <div className="relative w-full">
+                      <img src={formPreview} alt="미리보기" className="w-full max-h-40 object-cover" />
+                      <div className="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
+                        <p className="text-white text-xs font-medium">클릭하여 변경</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="py-6 flex flex-col items-center gap-2 text-gray-400">
+                      <ImagePlus size={24} />
+                      <p className="text-xs">클릭하여 사진 선택</p>
+                      <p className="text-xs text-gray-300">JPG, PNG, GIF, WEBP</p>
+                    </div>
+                  )}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleFileChange}
+                    className="hidden"
+                  />
+                </label>
               </div>
 
               {/* 간단 설명 */}
