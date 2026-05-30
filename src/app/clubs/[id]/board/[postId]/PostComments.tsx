@@ -18,27 +18,19 @@ export default function PostComments({ postId }: { postId: string }) {
   const [userId, setUserId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
 
-  // [디버그] 컴포넌트 렌더링 확인
-  console.log('[PostComments] 렌더링됨, postId:', postId)
-
   useEffect(() => {
+    // supabase를 effect 안에서 생성 — 렌더마다 새 클라이언트 생성 방지
     const supabase = createClient()
 
     const init = async () => {
-      // 유저 세션 확인
       const { data: { user } } = await supabase.auth.getUser()
-      console.log('[PostComments] 유저 ID:', user?.id ?? 'null')
       setUserId(user?.id ?? null)
 
-      // 댓글 불러오기
-      const { data, error } = await supabase
+      const { data } = await supabase
         .from('comments')
         .select('id, content, created_at, author:users(name)')
         .eq('post_id', postId)
         .order('created_at', { ascending: true })
-
-      console.log('[PostComments] 댓글 데이터:', data)
-      console.log('[PostComments] 댓글 에러:', error)
 
       setComments((data as Comment[]) ?? [])
       setLoading(false)
@@ -59,14 +51,13 @@ export default function PostComments({ postId }: { postId: string }) {
 
   const handleSubmit = async () => {
     if (!content.trim() || !userId) return
-    const supabase = createClient()
     setSubmitting(true)
+    const supabase = createClient()
     const { error } = await supabase.from('comments').insert({
       post_id: postId,
       user_id: userId,
       content: content.trim(),
     })
-    console.log('[PostComments] 등록 에러:', error)
     if (!error) {
       setContent('')
       await refetch()

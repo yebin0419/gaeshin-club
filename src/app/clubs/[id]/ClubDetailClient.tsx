@@ -20,41 +20,31 @@ interface Props {
 
 export default function ClubDetailClient({ club, memberCount }: Props) {
   const router = useRouter()
-  const supabase = createClient()
-  const [applying, setApplying] = useState(false)
   const [showForm, setShowForm] = useState(false)
   const [contact, setContact] = useState('')
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
   const [error, setError] = useState('')
-
   const [membership, setMembership] = useState<{ role: string } | null>(null)
   const [userId, setUserId] = useState<string | null>(null)
   const [authLoading, setAuthLoading] = useState(true)
 
   useEffect(() => {
+    // supabase를 effect 안에서 생성 — 렌더마다 새 클라이언트/리스너가 생기는 무한루프 방지
+    const supabase = createClient()
+
     const fetchMembership = async () => {
       const { data: { user } } = await supabase.auth.getUser()
-
-      // [디버그] F12 콘솔에서 확인
-      console.log('[ClubDetailClient] 요청하는 ID들:', {
-        club_id: club.id,
-        user_id: user?.id ?? 'null → 로그인 세션 없음',
-      })
-
       if (!user) { setAuthLoading(false); return }
 
       setUserId(user.id)
 
-      const { data, error: membershipError } = await supabase
+      const { data } = await supabase
         .from('club_members')
         .select('role')
         .eq('club_id', club.id)
         .eq('user_id', user.id)
         .single()
-
-      console.log('[ClubDetailClient] DB에서 가져온 내 권한:', data?.role ?? '없음(null)')
-      console.log('[ClubDetailClient] membership 쿼리 에러:', membershipError)
 
       setMembership(data)
       setAuthLoading(false)
@@ -66,6 +56,7 @@ export default function ClubDetailClient({ club, memberCount }: Props) {
   const handleApply = async () => {
     if (!contact) { setError('연락처를 입력해 주세요.'); return }
     setLoading(true)
+    const supabase = createClient()
     const { error: err } = await supabase.from('club_applications').insert({
       club_id: club.id, user_id: userId, contact, status: 'pending',
     })
