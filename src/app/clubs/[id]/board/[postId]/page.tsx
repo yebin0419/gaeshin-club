@@ -146,15 +146,18 @@ export default function PostDetailPage() {
       if (error) console.error('댓글 유저 조회 에러:', error)
       users?.forEach((u: any) => { nameMap[u.id] = u.name })
     }
-    return flat.map((c: any) => ({
-      id: c.id,
-      content: c.content,
-      created_at: c.created_at,
-      user_id: c.user_id ?? null,
-      parent_id: c.parent_id ?? null,
-      role: c.user_id ? (currentRoleMap[c.user_id] ?? 'member') : null,
-      author: c.user_id ? { name: nameMap[c.user_id] ?? '알 수 없음' } : null,
-    }))
+    const validIds = new Set(flat.map((c: any) => c.id))
+    return flat
+      .filter((c: any) => !c.parent_id || validIds.has(c.parent_id))
+      .map((c: any) => ({
+        id: c.id,
+        content: c.content,
+        created_at: c.created_at,
+        user_id: c.user_id ?? null,
+        parent_id: c.parent_id ?? null,
+        role: c.user_id ? (currentRoleMap[c.user_id] ?? 'member') : null,
+        author: c.user_id ? { name: nameMap[c.user_id] ?? '알 수 없음' } : null,
+      }))
   }
 
   const loadComments = async (currentRoleMap?: Record<string, string>) => {
