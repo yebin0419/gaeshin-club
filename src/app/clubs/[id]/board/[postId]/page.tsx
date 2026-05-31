@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { ArrowLeft, Pin, BarChart2, MessageCircle, Send, Heart, CornerDownRight } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import Badge from '@/components/ui/Badge'
+import { revalidateBoardList } from '../actions'
 
 interface Post {
   id: string
@@ -180,6 +181,8 @@ export default function PostDetailPage() {
     const { error } = await supabase.from('comments').delete().eq('id', commentId)
     if (!error) {
       setComments(prev => prev.filter(c => c.id !== commentId && c.parent_id !== commentId))
+      await revalidateBoardList(clubId)
+      router.refresh()
     }
   }
 
@@ -225,6 +228,8 @@ export default function PostDetailPage() {
       setComments(prev => [...prev, newReply])
       setReplyText('')
       setReplyingToId(null)
+      await revalidateBoardList(clubId)
+      router.refresh()
     }
     setReplySubmitting(false)
   }
@@ -308,6 +313,8 @@ export default function PostDetailPage() {
       }
       setComments(prev => [...prev, newComment])
       setCommentText('')
+      await revalidateBoardList(clubId)
+      router.refresh()
     }
     setSubmitting(false)
   }
