@@ -3,9 +3,8 @@ export const dynamic = 'force-dynamic'
 import { createClient } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Pin, BarChart2, Plus } from 'lucide-react'
-import Badge from '@/components/ui/Badge'
-import { Post } from '@/types'
+import { ArrowLeft, Plus } from 'lucide-react'
+import BoardClient from './BoardClient'
 
 export default async function BoardPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -22,7 +21,7 @@ export default async function BoardPage({ params }: { params: Promise<{ id: stri
 
   const { data: posts } = await supabase
     .from('posts')
-    .select('*, author:users(name)')
+    .select('id, title, content, type, is_pinned, created_at, author_id, author:users(name)')
     .eq('club_id', id)
     .order('is_pinned', { ascending: false })
     .order('created_at', { ascending: false })
@@ -47,25 +46,11 @@ export default async function BoardPage({ params }: { params: Promise<{ id: stri
           )}
         </div>
 
-        <div className="flex flex-col gap-2">
-          {posts && posts.length > 0 ? (
-            posts.map((post: Post & { author?: { name: string } }) => (
-              <Link key={post.id} href={`/clubs/${id}/board/${post.id}`}
-                className="bg-white rounded-xl border border-gray-200 p-4 hover:border-[#C0392B]/30 hover:shadow-sm transition-all">
-                <div className="flex items-center gap-2 mb-1.5">
-                  {post.is_pinned && <Pin size={13} className="text-[#C0392B]" />}
-                  {post.type === 'notice' && <Badge variant="primary">공지</Badge>}
-                  {post.type === 'poll' && <Badge variant="warning"><BarChart2 size={11} className="inline mr-0.5" />수요조사</Badge>}
-                  {post.type === 'general' && <Badge variant="default">일반</Badge>}
-                </div>
-                <h3 className="font-medium text-gray-900 text-sm line-clamp-2">{post.title}</h3>
-                <p className="text-xs text-gray-400 mt-1.5">{post.author?.name ?? '알 수 없음'} · {new Date(post.created_at).toLocaleDateString('ko-KR')}</p>
-              </Link>
-            ))
-          ) : (
-            <div className="mt-16 text-center text-gray-400 text-sm">게시글이 없습니다.</div>
-          )}
-        </div>
+        <BoardClient
+          clubId={id}
+          posts={(posts ?? []) as any}
+          userId={user?.id ?? null}
+        />
       </div>
     </div>
   )
