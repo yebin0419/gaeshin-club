@@ -38,7 +38,7 @@ export default function WritePostPage({ params }: { params: Promise<{ id: string
       content,
       ...(type === 'poll' && { poll_options: pollOptions.map(o => o.trim()) }),
     })
-    if (err) { setError('저장 중 오류가 발생했습니다.'); setLoading(false); return }
+    if (err) { console.error('게시글 저장 에러 상세:', err); setError('저장 중 오류가 발생했습니다.'); setLoading(false); return }
     router.push(`/clubs/${id}/board`)
   }
 
