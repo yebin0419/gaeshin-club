@@ -177,7 +177,10 @@ export default function PostDetailPage() {
     if (!window.confirm('댓글을 삭제하시겠습니까?')) return
     const supabase = createClient()
     const { error } = await supabase.from('comments').delete().eq('id', commentId)
-    if (!error) setComments(prev => prev.filter(c => c.id !== commentId && c.parent_id !== commentId))
+    if (!error) {
+      setComments(prev => prev.filter(c => c.id !== commentId && c.parent_id !== commentId))
+      router.refresh()
+    }
   }
 
   const handleCommentEditSave = async (commentId: string) => {
@@ -213,6 +216,7 @@ export default function PostDetailPage() {
       setReplyText('')
       setReplyingToId(null)
       await fetchComments()
+      router.refresh()
     }
     setReplySubmitting(false)
   }
@@ -288,6 +292,7 @@ export default function PostDetailPage() {
       setCommentText('')
       setReplyingToId(null)
       await fetchComments()
+      router.refresh()
     }
     setSubmitting(false)
   }
