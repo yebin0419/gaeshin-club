@@ -68,6 +68,7 @@ export default function PostDetailPage() {
   const [submitting, setSubmitting] = useState(false)
   const [roleMap, setRoleMap] = useState<Record<string, string>>({})
   const roleMapRef = useRef<Record<string, string>>({})
+  const [userName, setUserName] = useState<string>('')
   const [pageLoading, setPageLoading] = useState(true)
   const [commentsLoading, setCommentsLoading] = useState(true)
 
@@ -89,6 +90,11 @@ export default function PostDetailPage() {
 
       const currentUserId = user?.id ?? null
       setUserId(currentUserId)
+
+      if (currentUserId) {
+        const { data: meData } = await supabase.from('users').select('name').eq('id', currentUserId).single()
+        setUserName(meData?.name ?? '')
+      }
 
       const supabase2 = createClient()
       const [{ count }, { data: userLike }] = await Promise.all([
@@ -163,30 +169,14 @@ export default function PostDetailPage() {
     setCommentsLoading(false)
   }
 
-  const fetchComments = async () => {
-    try {
-      const supabase = createClient()
-      const { data, error } = await supabase
-        .from('comments')
-        .select('*')
-        .eq('post_id', postId)
-        .order('created_at', { ascending: true })
-      if (error) { console.error('댓글 fetch 에러:', error); return }
-      const assembled = await assembleComments(data ?? [], roleMapRef.current)
-      console.log('fetchComments 성공 — 댓글 수:', assembled.length)
-      setComments(assembled)
-    } catch (e) {
-      console.error('fetchComments 예외:', e)
-    }
-  }
-
-
   const handleCommentDelete = async (commentId: string) => {
     if (!window.confirm('댓글을 삭제하시겠습니까?')) return
     const supabase = createClient()
+    // 대댓글도 함께 삭제
+    await supabase.from('comments').delete().eq('parent_id', commentId)
     const { error } = await supabase.from('comments').delete().eq('id', commentId)
     if (!error) {
-      await fetchComments()
+      setComments(prev => prev.filter(c => c.id !== commentId && c.parent_id !== commentId))
     }
   }
 
@@ -210,19 +200,28 @@ export default function PostDetailPage() {
     if (!replyText.trim() || !userId) return
     setReplySubmitting(true)
     const supabase = createClient()
-    const { error } = await supabase.from('comments').insert({
+    const { data: inserted, error } = await supabase.from('comments').insert({
       post_id: postId,
       user_id: userId,
       content: replyText.trim(),
-      parent_id: parentId ? parentId : null,
-    })
+      parent_id: parentId,
+    }).select('id, created_at').single()
     if (error) {
       console.error('댓글 insert 에러:', error)
       alert('댓글 등록에 실패했습니다.')
     } else {
+      const newReply: Comment = {
+        id: inserted.id,
+        content: replyText.trim(),
+        created_at: inserted.created_at,
+        user_id: userId,
+        parent_id: parentId,
+        role: roleMapRef.current[userId] ?? 'member',
+        author: { name: userName },
+      }
+      setComments(prev => [...prev, newReply])
       setReplyText('')
       setReplyingToId(null)
-      await fetchComments()
     }
     setReplySubmitting(false)
   }
@@ -285,19 +284,27 @@ export default function PostDetailPage() {
     if (!commentText.trim() || !userId) return
     setSubmitting(true)
     const supabase = createClient()
-    const { error } = await supabase.from('comments').insert({
+    const { data: inserted, error } = await supabase.from('comments').insert({
       post_id: postId,
       user_id: userId,
       content: commentText.trim(),
       parent_id: null,
-    })
+    }).select('id, created_at').single()
     if (error) {
       console.error('댓글 insert 에러:', error)
       alert('댓글 등록에 실패했습니다.')
     } else {
+      const newComment: Comment = {
+        id: inserted.id,
+        content: commentText.trim(),
+        created_at: inserted.created_at,
+        user_id: userId,
+        parent_id: null,
+        role: roleMapRef.current[userId] ?? 'member',
+        author: { name: userName },
+      }
+      setComments(prev => [...prev, newComment])
       setCommentText('')
-      setReplyingToId(null)
-      await fetchComments()
     }
     setSubmitting(false)
   }
