@@ -186,6 +186,7 @@ export default function PostDetailPage() {
   }
 
   const handleDelete = async () => {
+    console.log('삭제 버튼 눌림! 대상 ID:', postId)
     if (!window.confirm('정말 이 게시글을 삭제하시겠습니까?')) return
     const supabase = createClient()
 

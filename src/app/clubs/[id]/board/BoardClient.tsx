@@ -51,6 +51,8 @@ export default function BoardClient({ clubId, posts, userId }: Props) {
 
   const handleDelete = async (e: React.MouseEvent, postId: string) => {
     e.preventDefault()
+    e.stopPropagation()
+    console.log('삭제 버튼 눌림! 대상 ID:', postId)
     if (!window.confirm('정말 이 게시글을 삭제하시겠습니까?')) return
     const supabase = createClient()
 
@@ -105,7 +107,7 @@ export default function BoardClient({ clubId, posts, userId }: Props) {
           </Link>
 
           {userId && userId === post.author_id && (
-            <div className="absolute top-3.5 right-4 flex items-center gap-3">
+            <div className="absolute top-3.5 right-4 z-10 flex items-center gap-3">
               <Link
                 href={`/clubs/${clubId}/board/${post.id}`}
                 onClick={e => e.stopPropagation()}
@@ -114,6 +116,7 @@ export default function BoardClient({ clubId, posts, userId }: Props) {
                 수정
               </Link>
               <button
+                type="button"
                 onClick={e => handleDelete(e, post.id)}
                 className="text-xs text-gray-400 hover:text-red-500"
               >
