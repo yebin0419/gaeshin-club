@@ -19,14 +19,27 @@ export default async function BoardPage({ params }: { params: Promise<{ id: stri
     ? await supabase.from('club_members').select('role').eq('club_id', id).eq('user_id', user.id).single()
     : { data: null }
 
-  const { data: posts } = await supabase
-    .from('posts')
-    .select('id, title, content, type, is_pinned, created_at, author_id, author:users(name), comments(count), post_likes(count)')
-    .eq('club_id', id)
-    .order('is_pinned', { ascending: false })
-    .order('created_at', { ascending: false })
+  const [{ data: posts }, { data: members }] = await Promise.all([
+    supabase
+      .from('posts')
+      .select('id, title, content, type, is_pinned, created_at, author_id, author:users(name), comments(count), post_likes(count)')
+      .eq('club_id', id)
+      .order('is_pinned', { ascending: false })
+      .order('created_at', { ascending: false }),
+    supabase
+      .from('club_members')
+      .select('user_id, role')
+      .eq('club_id', id),
+  ])
 
-  const isStaff = membership?.role === 'owner' || membership?.role === 'staff'
+  const roleMap: Record<string, string> = Object.fromEntries(
+    (members ?? []).map(m => [m.user_id, m.role])
+  )
+
+  const postsWithRole = (posts ?? []).map(p => ({
+    ...p,
+    author_role: (p as any).author_id ? (roleMap[(p as any).author_id] ?? 'member') : null,
+  }))
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -48,7 +61,7 @@ export default async function BoardPage({ params }: { params: Promise<{ id: stri
 
         <BoardClient
           clubId={id}
-          posts={(posts ?? []) as any}
+          posts={postsWithRole as any}
           userId={user?.id ?? null}
         />
       </div>

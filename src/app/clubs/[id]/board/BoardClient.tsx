@@ -14,9 +14,30 @@ interface Post {
   is_pinned: boolean
   created_at: string
   author_id: string | null
+  author_role: string | null
   author: { name: string } | null
   comments: { count: number }[]
   post_likes: { count: number }[]
+}
+
+function RoleBadge({ role }: { role: string | null }) {
+  if (role === 'owner')
+    return (
+      <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-[#C0392B] text-white leading-none">
+        👑 방장
+      </span>
+    )
+  if (role === 'staff')
+    return (
+      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-orange-100 text-orange-600 leading-none">
+        스태프
+      </span>
+    )
+  return (
+    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-gray-100 text-gray-400 leading-none">
+      부원
+    </span>
+  )
 }
 
 interface Props {
@@ -56,9 +77,11 @@ export default function BoardClient({ clubId, posts, userId }: Props) {
             </div>
             <h3 className="font-medium text-gray-900 text-sm line-clamp-2 pr-16">{post.title}</h3>
             <div className="flex items-center justify-between mt-1.5">
-              <p className="text-xs text-gray-400">
-                {post.author?.name ?? '알 수 없음'} · {new Date(post.created_at).toLocaleDateString('ko-KR')}
-              </p>
+              <div className="flex items-center gap-1 flex-wrap">
+                <span className="text-xs text-gray-500 font-medium">{post.author?.name ?? '알 수 없음'}</span>
+                <RoleBadge role={post.author_role} />
+                <span className="text-xs text-gray-400">· {new Date(post.created_at).toLocaleDateString('ko-KR')}</span>
+              </div>
               <div className="flex items-center gap-2.5">
                 <span className="flex items-center gap-0.5 text-xs text-gray-400">
                   <MessageCircle size={12} />
