@@ -155,7 +155,10 @@ export default function PostDetailPage() {
       .from('comments')
       .update({ content: editCommentContent.trim() })
       .eq('id', commentId)
-    if (!error) {
+    if (error) {
+      console.error('댓글 수정 에러:', error)
+      alert('댓글 등록에 실패했습니다.')
+    } else {
       setComments(prev => prev.map(c => c.id === commentId ? { ...c, content: editCommentContent.trim() } : c))
       setEditingCommentId(null)
     }
@@ -169,10 +172,11 @@ export default function PostDetailPage() {
       post_id: postId,
       user_id: userId,
       content: replyText.trim(),
-      parent_id: parentId,
+      parent_id: parentId ? parentId : null,
     })
     if (error) {
       console.error('댓글 insert 에러:', error)
+      alert('댓글 등록에 실패했습니다.')
     } else {
       setReplyText('')
       setReplyingToId(null)
@@ -237,8 +241,10 @@ export default function PostDetailPage() {
     })
     if (error) {
       console.error('댓글 insert 에러:', error)
+      alert('댓글 등록에 실패했습니다.')
     } else {
       setCommentText('')
+      setReplyingToId(null)
       await fetchComments()
     }
     setSubmitting(false)
