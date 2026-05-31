@@ -22,6 +22,7 @@ interface Comment {
   id: string
   content: string
   created_at: string
+  user_id: string | null
   author: { name: string } | null
 }
 
@@ -37,6 +38,8 @@ export default function PostDetailPage() {
   const [likeCount, setLikeCount] = useState(0)
   const [isEditing, setIsEditing] = useState(false)
   const [editContent, setEditContent] = useState('')
+  const [editingCommentId, setEditingCommentId] = useState<string | null>(null)
+  const [editCommentContent, setEditCommentContent] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [pageLoading, setPageLoading] = useState(true)
   const [commentsLoading, setCommentsLoading] = useState(true)
@@ -93,7 +96,7 @@ export default function PostDetailPage() {
     const loadComments = async () => {
       const { data } = await supabase
         .from('comments')
-        .select('id, content, created_at, author:users(name)')
+        .select('id, content, created_at, user_id, author:users(name)')
         .eq('post_id', postId)
         .order('created_at', { ascending: true })
 
@@ -108,10 +111,30 @@ export default function PostDetailPage() {
     const supabase = createClient()
     const { data } = await supabase
       .from('comments')
-      .select('id, content, created_at, author:users(name)')
+      .select('id, content, created_at, user_id, author:users(name)')
       .eq('post_id', postId)
       .order('created_at', { ascending: true })
     setComments((data as unknown as Comment[]) ?? [])
+  }
+
+  const handleCommentDelete = async (commentId: string) => {
+    if (!window.confirm('댓글을 삭제하시겠습니까?')) return
+    const supabase = createClient()
+    const { error } = await supabase.from('comments').delete().eq('id', commentId)
+    if (!error) setComments(prev => prev.filter(c => c.id !== commentId))
+  }
+
+  const handleCommentEditSave = async (commentId: string) => {
+    if (!editCommentContent.trim()) return
+    const supabase = createClient()
+    const { error } = await supabase
+      .from('comments')
+      .update({ content: editCommentContent.trim() })
+      .eq('id', commentId)
+    if (!error) {
+      setComments(prev => prev.map(c => c.id === commentId ? { ...c, content: editCommentContent.trim() } : c))
+      setEditingCommentId(null)
+    }
   }
 
   const handleDelete = async () => {
@@ -306,12 +329,39 @@ export default function PostDetailPage() {
               <div key={c.id} className="bg-white rounded-xl border border-gray-200 px-4 py-3">
                 <div className="flex items-center justify-between mb-1">
                   <span className="text-xs font-semibold text-gray-700">{c.author?.name ?? '알 수 없음'}</span>
-                  <span className="text-xs text-gray-400">
-                    {new Date(c.created_at).toLocaleDateString('ko-KR', { month: 'long', day: 'numeric' })}{' '}
-                    {new Date(c.created_at).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}
-                  </span>
+                  <div className="flex items-center gap-3">
+                    <span className="text-xs text-gray-400">
+                      {new Date(c.created_at).toLocaleDateString('ko-KR', { month: 'long', day: 'numeric' })}{' '}
+                      {new Date(c.created_at).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                    {userId && userId === c.user_id && (
+                      editingCommentId === c.id ? (
+                        <>
+                          <button onClick={() => handleCommentEditSave(c.id)} className="text-xs text-[#C0392B] hover:underline font-medium">저장</button>
+                          <button onClick={() => setEditingCommentId(null)} className="text-xs text-gray-400 hover:underline">취소</button>
+                        </>
+                      ) : (
+                        <>
+                          <button
+                            onClick={() => { setEditCommentContent(c.content); setEditingCommentId(c.id) }}
+                            className="text-xs text-gray-400 hover:text-gray-600"
+                          >수정</button>
+                          <button onClick={() => handleCommentDelete(c.id)} className="text-xs text-gray-400 hover:text-red-500">삭제</button>
+                        </>
+                      )
+                    )}
+                  </div>
                 </div>
-                <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">{c.content}</p>
+                {editingCommentId === c.id ? (
+                  <textarea
+                    value={editCommentContent}
+                    onChange={e => setEditCommentContent(e.target.value)}
+                    rows={3}
+                    className="w-full mt-1 text-sm text-gray-800 leading-relaxed resize-none outline-none border border-gray-200 rounded-lg px-3 py-2 focus:border-[#C0392B] focus:ring-2 focus:ring-[#FADBD8]"
+                  />
+                ) : (
+                  <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">{c.content}</p>
+                )}
               </div>
             ))}
           </div>
