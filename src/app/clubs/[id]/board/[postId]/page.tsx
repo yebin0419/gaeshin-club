@@ -66,7 +66,6 @@ export default function PostDetailPage() {
   const [replyText, setReplyText] = useState('')
   const [replySubmitting, setReplySubmitting] = useState(false)
   const [submitting, setSubmitting] = useState(false)
-  const [commentCount, setCommentCount] = useState(0)
   const [roleMap, setRoleMap] = useState<Record<string, string>>({})
   const [pageLoading, setPageLoading] = useState(true)
   const [commentsLoading, setCommentsLoading] = useState(true)
@@ -158,9 +157,7 @@ export default function PostDetailPage() {
       .eq('post_id', postId)
       .order('created_at', { ascending: true })
     if (error) { console.error('댓글 fetch 에러:', error); setCommentsLoading(false); return }
-    const assembled = await assembleComments(data ?? [], currentRoleMap ?? roleMap)
-    setComments(assembled)
-    setCommentCount(assembled.length)
+    setComments(await assembleComments(data ?? [], currentRoleMap ?? roleMap))
     setCommentsLoading(false)
   }
 
@@ -500,7 +497,7 @@ export default function PostDetailPage() {
           <div className="flex items-center gap-1.5 mb-3 px-1">
             <MessageCircle size={15} className="text-gray-400" />
             <span className="text-sm font-medium text-gray-600">
-              {commentsLoading ? '댓글 로딩 중...' : `댓글 ${commentCount}개`}
+              {commentsLoading ? '댓글 로딩 중...' : `댓글 ${comments.length}개`}
             </span>
           </div>
 
