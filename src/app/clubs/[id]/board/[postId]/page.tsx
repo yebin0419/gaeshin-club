@@ -72,6 +72,8 @@ export default function PostDetailPage() {
   const [userName, setUserName] = useState<string>('')
   const [pageLoading, setPageLoading] = useState(true)
   const [commentsLoading, setCommentsLoading] = useState(true)
+  const [myVote, setMyVote] = useState<number | null>(null)
+  const [voteCounts, setVoteCounts] = useState<number[]>([])
 
   useEffect(() => {
     const supabase = createClient()
@@ -125,6 +127,22 @@ export default function PostDetailPage() {
       members?.forEach((m: any) => { map[m.user_id] = m.role })
       setRoleMap(map)
       roleMapRef.current = map
+
+      // 투표 데이터 로드
+      if (postData?.type === 'poll') {
+        const { data: responses } = await createClient()
+          .from('poll_responses')
+          .select('user_id, option_index')
+          .eq('post_id', postId)
+
+        if (responses) {
+          const counts = new Array((postData.poll_options as string[])?.length ?? 0).fill(0)
+          responses.forEach((r: any) => { if (r.option_index < counts.length) counts[r.option_index]++ })
+          setVoteCounts(counts)
+          const mine = responses.find((r: any) => r.user_id === currentUserId)
+          setMyVote(mine ? mine.option_index : null)
+        }
+      }
 
       setPageLoading(false)
 
@@ -261,6 +279,30 @@ export default function PostDetailPage() {
     if (!error) {
       setPost(prev => prev ? { ...prev, content: editContent.trim() } : prev)
       setIsEditing(false)
+    }
+  }
+
+  const handleVote = async (index: number) => {
+    if (!userId) return
+    const prevMyVote = myVote
+    const prevCounts = [...voteCounts]
+
+    // Optimistic update
+    const next = [...voteCounts]
+    if (prevMyVote !== null) next[prevMyVote] = Math.max(0, next[prevMyVote] - 1)
+    next[index] = (next[index] ?? 0) + 1
+    setVoteCounts(next)
+    setMyVote(index)
+
+    const supabase = createClient()
+    const { error } = prevMyVote === null
+      ? await supabase.from('poll_responses').insert({ post_id: postId, user_id: userId, option_index: index })
+      : await supabase.from('poll_responses').update({ option_index: index }).eq('post_id', postId).eq('user_id', userId)
+
+    if (error) {
+      console.error('투표 저장 에러:', error)
+      setVoteCounts(prevCounts)
+      setMyVote(prevMyVote)
     }
   }
 
@@ -498,17 +540,55 @@ export default function PostDetailPage() {
           {/* 투표 항목 */}
           {post.type === 'poll' && post.poll_options && post.poll_options.length > 0 && (
             <div className="mt-4 flex flex-col gap-2">
-              {post.poll_options.map((option, index) => (
-                <button
-                  key={index}
-                  type="button"
-                  onClick={() => console.log('투표 클릭:', option)}
-                  className="w-full text-left px-4 py-3 rounded-lg border border-gray-200 text-sm text-gray-700 hover:bg-gray-50 hover:border-[#C0392B]/40 transition-colors"
-                >
-                  <span className="text-[#C0392B] font-semibold mr-2">{index + 1}</span>
-                  {option}
-                </button>
-              ))}
+              {(() => {
+                const total = voteCounts.reduce((a, b) => a + b, 0)
+                const voted = myVote !== null
+                return post.poll_options!.map((option, index) => {
+                  const count = voteCounts[index] ?? 0
+                  const pct = total > 0 ? Math.round((count / total) * 100) : 0
+                  const isSelected = myVote === index
+                  return (
+                    <button
+                      key={index}
+                      type="button"
+                      onClick={() => handleVote(index)}
+                      disabled={!userId}
+                      className={`relative w-full text-left px-4 py-3 rounded-lg border text-sm transition-all overflow-hidden
+                        ${isSelected
+                          ? 'border-[#C0392B] bg-[#FADBD8] text-[#C0392B] font-semibold'
+                          : 'border-gray-200 text-gray-700 hover:bg-gray-50 hover:border-[#C0392B]/40'}
+                        disabled:cursor-not-allowed`}
+                    >
+                      {/* 득표율 배경 바 */}
+                      {voted && (
+                        <span
+                          className={`absolute inset-y-0 left-0 rounded-lg transition-all duration-500 ${isSelected ? 'bg-[#C0392B]/10' : 'bg-gray-100'}`}
+                          style={{ width: `${pct}%` }}
+                        />
+                      )}
+                      <span className="relative flex items-center justify-between gap-2">
+                        <span>
+                          <span className={`font-semibold mr-2 ${isSelected ? 'text-[#C0392B]' : 'text-gray-400'}`}>{index + 1}</span>
+                          {option}
+                        </span>
+                        {voted && (
+                          <span className="text-xs shrink-0 text-gray-500 font-medium">
+                            {count}표 ({pct}%)
+                          </span>
+                        )}
+                      </span>
+                    </button>
+                  )
+                })
+              })()}
+              {myVote !== null && (
+                <p className="text-xs text-center text-gray-400 mt-1">
+                  총 {voteCounts.reduce((a, b) => a + b, 0)}명 참여 · 항목을 다시 클릭하면 변경 가능
+                </p>
+              )}
+              {!userId && (
+                <p className="text-xs text-center text-gray-400 mt-1">로그인 후 투표할 수 있습니다.</p>
+              )}
             </div>
           )}
 
