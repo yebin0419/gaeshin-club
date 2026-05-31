@@ -16,6 +16,7 @@ interface Post {
   created_at: string
   author_id: string | null
   author: { name: string } | null
+  poll_options: string[] | null
 }
 
 interface Comment {
@@ -79,7 +80,7 @@ export default function PostDetailPage() {
       const [{ data: postData }, { data: { user } }] = await Promise.all([
         supabase
           .from('posts')
-          .select('id, title, content, type, is_pinned, created_at, author_id, author:users(name)')
+          .select('id, title, content, type, is_pinned, created_at, author_id, poll_options, author:users(name)')
           .eq('id', postId)
           .eq('club_id', clubId)
           .single(),
@@ -492,6 +493,23 @@ export default function PostDetailPage() {
             />
           ) : (
             <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">{post.content}</p>
+          )}
+
+          {/* 투표 항목 */}
+          {post.type === 'poll' && post.poll_options && post.poll_options.length > 0 && (
+            <div className="mt-4 flex flex-col gap-2">
+              {post.poll_options.map((option, index) => (
+                <button
+                  key={index}
+                  type="button"
+                  onClick={() => console.log('투표 클릭:', option)}
+                  className="w-full text-left px-4 py-3 rounded-lg border border-gray-200 text-sm text-gray-700 hover:bg-gray-50 hover:border-[#C0392B]/40 transition-colors"
+                >
+                  <span className="text-[#C0392B] font-semibold mr-2">{index + 1}</span>
+                  {option}
+                </button>
+              ))}
+            </div>
           )}
 
           {/* 좋아요 버튼 */}
