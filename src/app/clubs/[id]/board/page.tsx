@@ -14,32 +14,28 @@ export default async function BoardPage({ params }: { params: Promise<{ id: stri
   const { data: club } = await supabase.from('clubs').select('name').eq('id', id).single()
   if (!club) notFound()
 
-  const { data: { user } } = await supabase.auth.getUser()
+  const { data: userData } = await supabase.auth.getUser()
+  const userId = userData.user?.id ?? null
 
-  const { data: membership } = user
-    ? await supabase.from('club_members').select('role').eq('club_id', id).eq('user_id', user.id).single()
-    : { data: null }
+  const { data: rawPosts } = await supabase
+    .from('posts')
+    .select('id, title, content, type, is_pinned, created_at, author_id, author:users(name), comments(count), post_likes(count)')
+    .eq('club_id', id)
+    .order('is_pinned', { ascending: false })
+    .order('created_at', { ascending: false })
 
-  const [{ data: posts }, { data: members }] = await Promise.all([
-    supabase
-      .from('posts')
-      .select('id, title, content, type, is_pinned, created_at, author_id, author:users(name), comments(count), post_likes(count)')
-      .eq('club_id', id)
-      .order('is_pinned', { ascending: false })
-      .order('created_at', { ascending: false }),
-    supabase
-      .from('club_members')
-      .select('user_id, role')
-      .eq('club_id', id),
-  ])
-
-  const roleMap: Record<string, string> = Object.fromEntries(
-    (members ?? []).map(m => [m.user_id, m.role])
-  )
-
-  const postsWithRole = (posts ?? []).map(p => ({
-    ...p,
-    author_role: (p as any).author_id ? (roleMap[(p as any).author_id] ?? 'member') : null,
+  const posts = (rawPosts ?? []).map(p => ({
+    id: p.id as string,
+    title: p.title as string,
+    content: p.content as string,
+    type: p.type as string,
+    is_pinned: p.is_pinned as boolean,
+    created_at: p.created_at as string,
+    author_id: (p.author_id as string | null) ?? null,
+    author_role: null as string | null,
+    author: (p.author as unknown) as { name: string } | null,
+    comments: (p.comments as { count: number }[]) ?? [],
+    post_likes: (p.post_likes as { count: number }[]) ?? [],
   }))
 
   return (
@@ -52,14 +48,12 @@ export default async function BoardPage({ params }: { params: Promise<{ id: stri
             </Link>
             <h1 className="font-bold text-lg text-gray-900">{club.name} 게시판</h1>
           </div>
-          {/* 글쓰기 버튼은 BoardClient FAB으로 이동 */}
         </div>
-
         <BoardClient
           clubId={id}
-          posts={postsWithRole as any}
-          userId={user?.id ?? null}
-          isMember={!!membership}
+          posts={posts}
+          userId={userId}
+          isMember={true}
         />
       </div>
     </div>
