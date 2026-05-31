@@ -90,9 +90,10 @@ export default function BoardClient({ clubId, posts: initialPosts, userId }: Pro
       return
     }
 
-    // 4) 모든 DB 삭제 성공 후 UI 업데이트
+    // 4) 모든 DB 삭제 성공 후 UI 업데이트 + 라우터 캐시 무효화
     console.log('DB 삭제 성공:', postId)
     setPosts(prev => prev.filter(p => p.id !== postId))
+    router.refresh()
   }
 
   if (posts.length === 0) {
