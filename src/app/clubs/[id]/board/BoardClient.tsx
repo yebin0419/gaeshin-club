@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Pin, BarChart2, MessageCircle, Heart } from 'lucide-react'
@@ -50,6 +50,23 @@ interface Props {
 export default function BoardClient({ clubId, posts: initialPosts, userId }: Props) {
   const router = useRouter()
   const [posts, setPosts] = useState<Post[]>(initialPosts)
+
+  useEffect(() => {
+    const supabase = createClient()
+    const refreshCounts = async () => {
+      const { data } = await supabase
+        .from('posts')
+        .select('id, comments(count), post_likes(count)')
+        .eq('club_id', clubId)
+      if (data) {
+        setPosts(prev => prev.map(p => {
+          const fresh = data.find((d: any) => d.id === p.id)
+          return fresh ? { ...p, comments: fresh.comments, post_likes: fresh.post_likes } : p
+        }))
+      }
+    }
+    refreshCounts()
+  }, [clubId])
 
   const handleDelete = async (e: React.MouseEvent, postId: string) => {
     e.preventDefault()
