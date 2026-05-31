@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Pin, BarChart2, MessageCircle, Send } from 'lucide-react'
+import { ArrowLeft, Pin, BarChart2, MessageCircle, Send, Heart } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import Badge from '@/components/ui/Badge'
 
@@ -32,6 +32,8 @@ export default function PostDetailPage() {
   const [comments, setComments] = useState<Comment[]>([])
   const [userId, setUserId] = useState<string | null>(null)
   const [commentText, setCommentText] = useState('')
+  const [isLiked, setIsLiked] = useState(false)
+  const [likeCount, setLikeCount] = useState(0)
   const [submitting, setSubmitting] = useState(false)
   const [pageLoading, setPageLoading] = useState(true)
   const [commentsLoading, setCommentsLoading] = useState(true)
@@ -52,7 +54,29 @@ export default function PostDetailPage() {
       ])
 
       setPost(postData as Post | null)
-      setUserId(user?.id ?? null)
+
+      const currentUserId = user?.id ?? null
+      setUserId(currentUserId)
+
+      // 좋아요 수 + 현재 유저 좋아요 여부 로드
+      const supabase2 = createClient()
+      const [{ count }, { data: userLike }] = await Promise.all([
+        supabase2
+          .from('post_likes')
+          .select('*', { count: 'exact', head: true })
+          .eq('post_id', postId),
+        currentUserId
+          ? supabase2
+              .from('post_likes')
+              .select('id')
+              .eq('post_id', postId)
+              .eq('user_id', currentUserId)
+              .maybeSingle()
+          : Promise.resolve({ data: null }),
+      ])
+
+      setLikeCount(count ?? 0)
+      setIsLiked(!!userLike)
       setPageLoading(false)
     }
 
@@ -85,6 +109,37 @@ export default function PostDetailPage() {
       .eq('post_id', postId)
       .order('created_at', { ascending: true })
     setComments((data as unknown as Comment[]) ?? [])
+  }
+
+  const handleLike = async () => {
+    if (!userId) return
+
+    // 낙관적 업데이트
+    const prevLiked = isLiked
+    const prevCount = likeCount
+    setIsLiked(!prevLiked)
+    setLikeCount(prevLiked ? prevCount - 1 : prevCount + 1)
+
+    const supabase = createClient()
+    if (prevLiked) {
+      const { error } = await supabase
+        .from('post_likes')
+        .delete()
+        .eq('post_id', postId)
+        .eq('user_id', userId)
+      if (error) {
+        setIsLiked(prevLiked)
+        setLikeCount(prevCount)
+      }
+    } else {
+      const { error } = await supabase
+        .from('post_likes')
+        .insert({ post_id: postId, user_id: userId })
+      if (error) {
+        setIsLiked(prevLiked)
+        setLikeCount(prevCount)
+      }
+    }
   }
 
   const handleSubmit = async () => {
@@ -153,6 +208,30 @@ export default function PostDetailPage() {
           </p>
           <hr className="border-gray-100 mb-4" />
           <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">{post.content}</p>
+
+          {/* 좋아요 버튼 */}
+          <div className="mt-5 pt-4 border-t border-gray-100 flex items-center gap-2">
+            <button
+              onClick={handleLike}
+              disabled={!userId}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-all
+                ${isLiked
+                  ? 'bg-red-50 text-[#C0392B]'
+                  : 'bg-gray-100 text-gray-500 hover:bg-red-50 hover:text-[#C0392B]'}
+                disabled:opacity-40 disabled:cursor-not-allowed`}
+            >
+              <Heart
+                size={16}
+                className={`transition-transform ${isLiked ? 'scale-110' : ''}`}
+                fill={isLiked ? '#C0392B' : 'none'}
+                stroke={isLiked ? '#C0392B' : 'currentColor'}
+              />
+              <span>{likeCount}</span>
+            </button>
+            {!userId && (
+              <span className="text-xs text-gray-400">로그인 후 좋아요를 누를 수 있습니다.</span>
+            )}
+          </div>
         </div>
 
         {/* ── 댓글 섹션 ── */}
