@@ -54,7 +54,7 @@ export default function ClubDetailClient({ club, memberCount }: Props) {
           .maybeSingle(),
       ])
 
-      const ADMIN_ROLES = ['app_admin', 'admin', 'owner']
+      const ADMIN_ROLES = ['app_admin', 'admin']
       const isGlobalAdmin = ADMIN_ROLES.includes(userData?.role ?? '')
 
       console.log('[권한체크] user.id:', user.id)

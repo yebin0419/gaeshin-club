@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { notFound, redirect } from 'next/navigation'
 import MembersClient from './MembersClient'
 
-const ADMIN_ROLES = ['app_admin', 'admin', 'owner']
+const ADMIN_ROLES = ['app_admin', 'admin']
 
 export default async function MembersPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
