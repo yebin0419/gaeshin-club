@@ -6,7 +6,6 @@ import Link from 'next/link'
 import { ArrowLeft, Pin, BarChart2, MessageCircle, Send, Heart, CornerDownRight } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import Badge from '@/components/ui/Badge'
-import { revalidateBoardList } from '../actions'
 
 interface Post {
   id: string
@@ -182,13 +181,7 @@ export default function PostDetailPage() {
     const supabase = createClient()
     const { error } = await supabase.from('comments').delete().eq('id', commentId)
     if (!error) {
-      setComments(prev => {
-        const next = prev.filter(c => c.id !== commentId && c.parent_id !== commentId)
-        setCommentCount(next.length)
-        return next
-      })
-      revalidateBoardList(clubId as string)
-      router.refresh()
+      await fetchComments()
     }
   }
 
@@ -222,12 +215,9 @@ export default function PostDetailPage() {
       console.error('댓글 insert 에러:', error)
       alert('댓글 등록에 실패했습니다.')
     } else {
-      setCommentCount(prev => prev + 1)
       setReplyText('')
       setReplyingToId(null)
       await fetchComments()
-      revalidateBoardList(clubId as string)
-      router.refresh()
     }
     setReplySubmitting(false)
   }
@@ -300,12 +290,9 @@ export default function PostDetailPage() {
       console.error('댓글 insert 에러:', error)
       alert('댓글 등록에 실패했습니다.')
     } else {
-      setCommentCount(prev => prev + 1)
       setCommentText('')
       setReplyingToId(null)
       await fetchComments()
-      revalidateBoardList(clubId as string)
-      router.refresh()
     }
     setSubmitting(false)
   }
