@@ -24,7 +24,28 @@ interface Comment {
   created_at: string
   user_id: string | null
   parent_id: string | null
+  role: string | null
   author: { name: string } | null
+}
+
+function RoleBadge({ role }: { role: string | null }) {
+  if (role === 'owner')
+    return (
+      <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-[#C0392B] text-white leading-none">
+        👑 방장
+      </span>
+    )
+  if (role === 'staff')
+    return (
+      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-orange-100 text-orange-600 leading-none">
+        스태프
+      </span>
+    )
+  return (
+    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-gray-100 text-gray-400 leading-none">
+      부원
+    </span>
+  )
 }
 
 export default function PostDetailPage() {
@@ -45,6 +66,7 @@ export default function PostDetailPage() {
   const [replyText, setReplyText] = useState('')
   const [replySubmitting, setReplySubmitting] = useState(false)
   const [submitting, setSubmitting] = useState(false)
+  const [roleMap, setRoleMap] = useState<Record<string, string>>({})
   const [pageLoading, setPageLoading] = useState(true)
   const [commentsLoading, setCommentsLoading] = useState(true)
 
@@ -85,13 +107,26 @@ export default function PostDetailPage() {
 
       setLikeCount(count ?? 0)
       setIsLiked(!!userLike)
+
+      // club_members role 조회
+      const { data: members } = await createClient()
+        .from('club_members')
+        .select('user_id, role')
+        .eq('club_id', clubId)
+      const map: Record<string, string> = {}
+      members?.forEach((m: any) => { map[m.user_id] = m.role })
+      setRoleMap(map)
+
       setPageLoading(false)
+
+      // roleMap 확정 후 댓글 로드 (role 뱃지 적용을 위해)
+      await loadComments(map)
     }
 
     load()
   }, [postId, clubId])
 
-  const assembleComments = async (flat: any[]): Promise<Comment[]> => {
+  const assembleComments = async (flat: any[], currentRoleMap: Record<string, string>): Promise<Comment[]> => {
     const supabase = createClient()
     const userIds = [...new Set(flat.map((c: any) => c.user_id).filter(Boolean))]
     let nameMap: Record<string, string> = {}
@@ -109,11 +144,12 @@ export default function PostDetailPage() {
       created_at: c.created_at,
       user_id: c.user_id ?? null,
       parent_id: c.parent_id ?? null,
+      role: c.user_id ? (currentRoleMap[c.user_id] ?? 'member') : null,
       author: c.user_id ? { name: nameMap[c.user_id] ?? '알 수 없음' } : null,
     }))
   }
 
-  const loadComments = async () => {
+  const loadComments = async (currentRoleMap?: Record<string, string>) => {
     const supabase = createClient()
     const { data, error } = await supabase
       .from('comments')
@@ -121,7 +157,7 @@ export default function PostDetailPage() {
       .eq('post_id', postId)
       .order('created_at', { ascending: true })
     if (error) { console.error('댓글 fetch 에러:', error); setCommentsLoading(false); return }
-    setComments(await assembleComments(data ?? []))
+    setComments(await assembleComments(data ?? [], currentRoleMap ?? roleMap))
     setCommentsLoading(false)
   }
 
@@ -133,13 +169,9 @@ export default function PostDetailPage() {
       .eq('post_id', postId)
       .order('created_at', { ascending: true })
     if (error) { console.error('댓글 fetch 에러:', error); return }
-    setComments(await assembleComments(data ?? []))
+    setComments(await assembleComments(data ?? [], roleMap))
   }
 
-  useEffect(() => {
-    loadComments()
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [postId])
 
   const handleCommentDelete = async (commentId: string) => {
     if (!window.confirm('댓글을 삭제하시겠습니까?')) return
@@ -293,6 +325,7 @@ export default function PostDetailPage() {
           <span className="text-xs font-semibold text-gray-700 flex items-center gap-1">
             {isReply && <CornerDownRight size={12} className="text-gray-400" />}
             {c.author?.name ?? '알 수 없음'}
+            <RoleBadge role={c.role} />
           </span>
           <div className="flex items-center gap-3">
             <span className="text-xs text-gray-400">
@@ -395,10 +428,13 @@ export default function PostDetailPage() {
           </div>
           <h2 className="text-lg font-bold text-gray-900 mb-2 leading-snug">{post.title}</h2>
           <div className="flex items-center justify-between mb-4">
-            <p className="text-xs text-gray-400">
-              {post.author?.name ?? '알 수 없음'} ·{' '}
-              {new Date(post.created_at).toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' })}
-            </p>
+            <div className="flex items-center gap-1 flex-wrap">
+              <span className="text-xs text-gray-500 font-medium">{post.author?.name ?? '알 수 없음'}</span>
+              <RoleBadge role={post.author_id ? (roleMap[post.author_id] ?? 'member') : null} />
+              <span className="text-xs text-gray-400">·{' '}
+                {new Date(post.created_at).toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' })}
+              </span>
+            </div>
             {userId && userId === post.author_id && (
               <div className="flex items-center gap-3">
                 {isEditing ? (
