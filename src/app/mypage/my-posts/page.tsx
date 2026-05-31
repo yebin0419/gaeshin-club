@@ -60,7 +60,7 @@ export default function MyPostsPage() {
             {posts.map(post => (
               <Link
                 key={post.id}
-                href={`/clubs/${post.club_id}/board/${post.id}`}
+                href={`/clubs/${post.club_id}/board/${post.id}?returnTo=/mypage/my-posts`}
                 className="block bg-white rounded-xl border border-gray-200 p-4 hover:border-[#C0392B]/30 hover:shadow-sm transition-all"
               >
                 <div className="flex items-center gap-2 mb-1.5">
