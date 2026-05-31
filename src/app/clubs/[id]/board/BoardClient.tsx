@@ -58,16 +58,40 @@ export default function BoardClient({ clubId, posts: initialPosts, userId }: Pro
     if (!window.confirm('정말 이 게시글을 삭제하시겠습니까?')) return
     const supabase = createClient()
 
-    const { error: likesErr } = await supabase.from('post_likes').delete().eq('post_id', postId)
-    if (likesErr) { console.error('DB 삭제 에러:', likesErr); alert('삭제 실패!'); return }
+    // 1) 좋아요 삭제
+    const { error: likesErr } = await supabase
+      .from('post_likes').delete().eq('post_id', postId)
+    if (likesErr) {
+      console.error('DB 삭제 에러 (post_likes):', likesErr)
+      alert('DB 삭제 실패: ' + likesErr.message)
+      return
+    }
 
-    const { error: commentsErr } = await supabase.from('comments').delete().eq('post_id', postId)
-    if (commentsErr) { console.error('DB 삭제 에러:', commentsErr); alert('삭제 실패!'); return }
+    // 2) 댓글 삭제
+    const { error: commentsErr } = await supabase
+      .from('comments').delete().eq('post_id', postId)
+    if (commentsErr) {
+      console.error('DB 삭제 에러 (comments):', commentsErr)
+      alert('DB 삭제 실패: ' + commentsErr.message)
+      return
+    }
 
-    const { error: postErr } = await supabase.from('posts').delete().eq('id', postId)
-    if (postErr) { console.error('DB 삭제 에러:', postErr); alert('삭제 실패!'); return }
+    // 3) 게시글 삭제 — .select()로 실제 삭제된 행 검증
+    const { data: deleted, error: postErr } = await supabase
+      .from('posts').delete().eq('id', postId).select('id')
+    if (postErr) {
+      console.error('DB 삭제 에러 (posts):', postErr)
+      alert('DB 삭제 실패: ' + postErr.message)
+      return
+    }
+    if (!deleted || deleted.length === 0) {
+      console.error('DB 삭제 실패: 0행 삭제 (RLS 또는 권한 문제)')
+      alert('DB 삭제 실패: 권한이 없거나 이미 삭제된 게시글입니다.')
+      return
+    }
 
-    alert('삭제되었습니다.')
+    // 4) 모든 DB 삭제 성공 후 UI 업데이트
+    console.log('DB 삭제 성공:', postId)
     setPosts(prev => prev.filter(p => p.id !== postId))
   }
 
