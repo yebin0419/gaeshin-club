@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { ArrowLeft, Pin, BarChart2, MessageCircle, Send, Heart, CornerDownRight } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import Badge from '@/components/ui/Badge'
+import { revalidateBoardList } from '../actions'
 
 interface Post {
   id: string
@@ -66,6 +67,7 @@ export default function PostDetailPage() {
   const [replyText, setReplyText] = useState('')
   const [replySubmitting, setReplySubmitting] = useState(false)
   const [submitting, setSubmitting] = useState(false)
+  const [commentCount, setCommentCount] = useState(0)
   const [roleMap, setRoleMap] = useState<Record<string, string>>({})
   const [pageLoading, setPageLoading] = useState(true)
   const [commentsLoading, setCommentsLoading] = useState(true)
@@ -157,7 +159,9 @@ export default function PostDetailPage() {
       .eq('post_id', postId)
       .order('created_at', { ascending: true })
     if (error) { console.error('댓글 fetch 에러:', error); setCommentsLoading(false); return }
-    setComments(await assembleComments(data ?? [], currentRoleMap ?? roleMap))
+    const assembled = await assembleComments(data ?? [], currentRoleMap ?? roleMap)
+    setComments(assembled)
+    setCommentCount(assembled.length)
     setCommentsLoading(false)
   }
 
@@ -178,7 +182,12 @@ export default function PostDetailPage() {
     const supabase = createClient()
     const { error } = await supabase.from('comments').delete().eq('id', commentId)
     if (!error) {
-      setComments(prev => prev.filter(c => c.id !== commentId && c.parent_id !== commentId))
+      setComments(prev => {
+        const next = prev.filter(c => c.id !== commentId && c.parent_id !== commentId)
+        setCommentCount(next.length)
+        return next
+      })
+      revalidateBoardList(clubId as string)
       router.refresh()
     }
   }
@@ -213,9 +222,11 @@ export default function PostDetailPage() {
       console.error('댓글 insert 에러:', error)
       alert('댓글 등록에 실패했습니다.')
     } else {
+      setCommentCount(prev => prev + 1)
       setReplyText('')
       setReplyingToId(null)
       await fetchComments()
+      revalidateBoardList(clubId as string)
       router.refresh()
     }
     setReplySubmitting(false)
@@ -289,9 +300,11 @@ export default function PostDetailPage() {
       console.error('댓글 insert 에러:', error)
       alert('댓글 등록에 실패했습니다.')
     } else {
+      setCommentCount(prev => prev + 1)
       setCommentText('')
       setReplyingToId(null)
       await fetchComments()
+      revalidateBoardList(clubId as string)
       router.refresh()
     }
     setSubmitting(false)
@@ -321,7 +334,6 @@ export default function PostDetailPage() {
   }
 
   const rootComments = comments.filter(c => !c.parent_id)
-  const totalCount = comments.length
 
   const renderComment = (c: Comment, isReply = false) => (
     <div key={c.id} className={isReply ? 'ml-8 mt-1' : ''}>
@@ -501,7 +513,7 @@ export default function PostDetailPage() {
           <div className="flex items-center gap-1.5 mb-3 px-1">
             <MessageCircle size={15} className="text-gray-400" />
             <span className="text-sm font-medium text-gray-600">
-              {commentsLoading ? '댓글 로딩 중...' : `댓글 ${totalCount}개`}
+              {commentsLoading ? '댓글 로딩 중...' : `댓글 ${commentCount}개`}
             </span>
           </div>
 
