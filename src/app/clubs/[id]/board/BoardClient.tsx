@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Pin, BarChart2, MessageCircle, Heart } from 'lucide-react'
@@ -46,8 +47,9 @@ interface Props {
   userId: string | null
 }
 
-export default function BoardClient({ clubId, posts, userId }: Props) {
+export default function BoardClient({ clubId, posts: initialPosts, userId }: Props) {
   const router = useRouter()
+  const [posts, setPosts] = useState<Post[]>(initialPosts)
 
   const handleDelete = async (e: React.MouseEvent, postId: string) => {
     e.preventDefault()
@@ -57,15 +59,16 @@ export default function BoardClient({ clubId, posts, userId }: Props) {
     const supabase = createClient()
 
     const { error: likesErr } = await supabase.from('post_likes').delete().eq('post_id', postId)
-    if (likesErr) { console.error('게시글 삭제 에러:', likesErr); alert('삭제 중 에러가 발생했습니다.'); return }
+    if (likesErr) { console.error('DB 삭제 에러:', likesErr); alert('삭제 실패!'); return }
 
     const { error: commentsErr } = await supabase.from('comments').delete().eq('post_id', postId)
-    if (commentsErr) { console.error('게시글 삭제 에러:', commentsErr); alert('삭제 중 에러가 발생했습니다.'); return }
+    if (commentsErr) { console.error('DB 삭제 에러:', commentsErr); alert('삭제 실패!'); return }
 
     const { error: postErr } = await supabase.from('posts').delete().eq('id', postId)
-    if (postErr) { console.error('게시글 삭제 에러:', postErr); alert('삭제 중 에러가 발생했습니다.'); return }
+    if (postErr) { console.error('DB 삭제 에러:', postErr); alert('삭제 실패!'); return }
 
-    router.refresh()
+    alert('삭제되었습니다.')
+    setPosts(prev => prev.filter(p => p.id !== postId))
   }
 
   if (posts.length === 0) {
