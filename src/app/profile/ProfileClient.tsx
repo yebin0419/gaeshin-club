@@ -1,7 +1,8 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { LogOut, User, BookOpen } from 'lucide-react'
+import Link from 'next/link'
+import { LogOut, User, BookOpen, FileText, Heart, ChevronRight } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import Header from '@/components/layout/Header'
 import BottomNav from '@/components/layout/BottomNav'
@@ -74,6 +75,33 @@ export default function ProfileClient({ profile, memberships }: Props) {
           ) : (
             <p className="text-sm text-gray-400">소속된 동아리가 없습니다.</p>
           )}
+        </div>
+
+        {/* 나의 활동 */}
+        <div className="bg-white rounded-2xl border border-gray-200 p-5 mb-4">
+          <h3 className="font-semibold text-gray-800 mb-3 flex items-center gap-2">
+            <FileText size={16} />나의 활동
+          </h3>
+          <div className="flex flex-col">
+            <Link
+              href="/mypage/my-posts"
+              className="flex items-center justify-between px-2 py-2.5 -mx-2 rounded-lg hover:bg-gray-50 transition-colors"
+            >
+              <span className="flex items-center gap-2 text-sm text-gray-700">
+                <FileText size={15} className="text-gray-400" />내가 쓴 글
+              </span>
+              <ChevronRight size={15} className="text-gray-400" />
+            </Link>
+            <Link
+              href="/mypage/liked-posts"
+              className="flex items-center justify-between px-2 py-2.5 -mx-2 rounded-lg hover:bg-gray-50 transition-colors"
+            >
+              <span className="flex items-center gap-2 text-sm text-gray-700">
+                <Heart size={15} className="text-gray-400" />내가 좋아요한 글
+              </span>
+              <ChevronRight size={15} className="text-gray-400" />
+            </Link>
+          </div>
         </div>
 
         <Button variant="ghost" className="w-full text-red-500 hover:bg-red-50" onClick={handleLogout}>
