@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import Link from 'next/link'
 import { ArrowLeft, Pin, BarChart2, MessageCircle, Send, Heart, CornerDownRight } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import Badge from '@/components/ui/Badge'
@@ -438,9 +437,12 @@ export default function PostDetailPage() {
 
         {/* 헤더 */}
         <div className="sticky top-0 bg-gray-50 z-10 flex items-center gap-3 py-4">
-          <Link href={`/clubs/${clubId}/board`} className="p-1 text-gray-500 hover:text-[#C0392B]">
+          <button
+            onClick={() => { router.refresh(); router.push(`/clubs/${clubId}/board`) }}
+            className="p-1 text-gray-500 hover:text-[#C0392B]"
+          >
             <ArrowLeft size={22} />
-          </Link>
+          </button>
           <h1 className="font-bold text-lg text-gray-900 truncate">게시글</h1>
         </div>
 
