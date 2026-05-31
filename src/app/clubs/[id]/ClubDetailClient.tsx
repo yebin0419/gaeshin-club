@@ -176,8 +176,13 @@ export default function ClubDetailClient({ club, memberCount }: Props) {
         {/* 버튼 영역 */}
         <div className="flex flex-col gap-2">
           {isOwner ? (
-            // 방장/관리자: 가입 신청 폼 숨김, 관리 버튼만 표시
-            null
+            <Button
+              size="lg"
+              className="w-full bg-[#C0392B] hover:bg-[#a93226] text-white"
+              onClick={() => router.push(`/clubs/${club.id}/board`)}
+            >
+              게시판 입장
+            </Button>
           ) : isMember ? (
             <Button size="lg" className="w-full" onClick={() => router.push(`/clubs/${club.id}/board`)}>
               게시판 보기
