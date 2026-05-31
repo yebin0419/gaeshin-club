@@ -65,8 +65,18 @@ export default function BoardClient({ clubId, posts: initialPosts, userId }: Pro
         }))
       }
     }
+
+    // 최초 마운트 시 실행
     refreshCounts()
-  }, [clubId])
+
+    // 뒤로가기(BFCache 복원 포함) 감지 — pageshow는 BFCache 복원 시에도 발화
+    const handlePageShow = (event: PageTransitionEvent) => {
+      refreshCounts()
+      router.refresh()
+    }
+    window.addEventListener('pageshow', handlePageShow)
+    return () => window.removeEventListener('pageshow', handlePageShow)
+  }, [clubId, router])
 
   const handleDelete = async (e: React.MouseEvent, postId: string) => {
     e.preventDefault()
