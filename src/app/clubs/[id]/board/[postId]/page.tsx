@@ -17,6 +17,7 @@ interface Post {
   author_id: string | null
   author: { name: string } | null
   poll_options: string[] | null
+  is_poll_closed: boolean
 }
 
 interface Comment {
@@ -82,7 +83,7 @@ export default function PostDetailPage() {
       const [{ data: postData }, { data: { user } }] = await Promise.all([
         supabase
           .from('posts')
-          .select('id, title, content, type, is_pinned, created_at, author_id, poll_options, author:users(name)')
+          .select('id, title, content, type, is_pinned, created_at, author_id, poll_options, is_poll_closed, author:users(name)')
           .eq('id', postId)
           .eq('club_id', clubId)
           .single(),
@@ -280,6 +281,14 @@ export default function PostDetailPage() {
       setPost(prev => prev ? { ...prev, content: editContent.trim() } : prev)
       setIsEditing(false)
     }
+  }
+
+  const handleClosePoll = async () => {
+    if (!window.confirm('투표를 마감하면 되돌릴 수 없습니다. 마감하시겠습니까?')) return
+    const supabase = createClient()
+    const { error } = await supabase.from('posts').update({ is_poll_closed: true }).eq('id', postId)
+    if (!error) setPost(prev => prev ? { ...prev, is_poll_closed: true } : prev)
+    else console.error('투표 마감 에러:', error)
   }
 
   const handleVote = async (index: number) => {
@@ -543,6 +552,7 @@ export default function PostDetailPage() {
               {(() => {
                 const total = voteCounts.reduce((a, b) => a + b, 0)
                 const voted = myVote !== null
+                const closed = post.is_poll_closed
                 return post.poll_options!.map((option, index) => {
                   const count = voteCounts[index] ?? 0
                   const pct = total > 0 ? Math.round((count / total) * 100) : 0
@@ -551,27 +561,30 @@ export default function PostDetailPage() {
                     <button
                       key={index}
                       type="button"
-                      onClick={() => handleVote(index)}
-                      disabled={!userId}
+                      onClick={() => !closed && handleVote(index)}
+                      disabled={!userId || closed}
                       className={`relative w-full text-left px-4 py-3 rounded-lg border text-sm transition-all overflow-hidden
-                        ${isSelected
-                          ? 'border-[#C0392B] bg-[#FADBD8] text-[#C0392B] font-semibold'
-                          : 'border-gray-200 text-gray-700 hover:bg-gray-50 hover:border-[#C0392B]/40'}
-                        disabled:cursor-not-allowed`}
+                        ${closed
+                          ? `opacity-75 cursor-default ${isSelected ? 'border-gray-300 bg-gray-50' : 'border-gray-200'}`
+                          : isSelected
+                            ? 'border-[#C0392B] bg-[#FADBD8] text-[#C0392B] font-semibold'
+                            : 'border-gray-200 text-gray-700 hover:bg-gray-50 hover:border-[#C0392B]/40'}
+                        disabled:cursor-default`}
                     >
                       {/* 득표율 배경 바 */}
-                      {voted && (
+                      {(voted || closed) && (
                         <span
-                          className={`absolute inset-y-0 left-0 rounded-lg transition-all duration-500 ${isSelected ? 'bg-[#C0392B]/10' : 'bg-gray-100'}`}
+                          className={`absolute inset-y-0 left-0 rounded-lg transition-all duration-500
+                            ${closed ? 'bg-gray-200' : isSelected ? 'bg-[#C0392B]/10' : 'bg-gray-100'}`}
                           style={{ width: `${pct}%` }}
                         />
                       )}
                       <span className="relative flex items-center justify-between gap-2">
                         <span>
-                          <span className={`font-semibold mr-2 ${isSelected ? 'text-[#C0392B]' : 'text-gray-400'}`}>{index + 1}</span>
+                          <span className={`font-semibold mr-2 ${!closed && isSelected ? 'text-[#C0392B]' : 'text-gray-400'}`}>{index + 1}</span>
                           {option}
                         </span>
-                        {voted && (
+                        {(voted || closed) && (
                           <span className="text-xs shrink-0 text-gray-500 font-medium">
                             {count}표 ({pct}%)
                           </span>
@@ -581,13 +594,28 @@ export default function PostDetailPage() {
                   )
                 })
               })()}
-              {myVote !== null && (
+
+              {/* 하단 안내 문구 */}
+              {post.is_poll_closed ? (
+                <p className="text-xs text-center text-gray-400 mt-1">
+                  총 {voteCounts.reduce((a, b) => a + b, 0)}명 참여 · 투표가 마감되었습니다.
+                </p>
+              ) : myVote !== null ? (
                 <p className="text-xs text-center text-gray-400 mt-1">
                   총 {voteCounts.reduce((a, b) => a + b, 0)}명 참여 · 항목을 다시 클릭하면 변경 가능
                 </p>
-              )}
-              {!userId && (
+              ) : !userId ? (
                 <p className="text-xs text-center text-gray-400 mt-1">로그인 후 투표할 수 있습니다.</p>
+              ) : null}
+
+              {/* 작성자 전용 마감 버튼 */}
+              {userId === post.author_id && !post.is_poll_closed && (
+                <button
+                  onClick={handleClosePoll}
+                  className="mt-1 w-full py-2 rounded-lg border border-dashed border-gray-300 text-xs text-gray-400 hover:border-red-400 hover:text-red-500 transition-colors"
+                >
+                  투표 마감하기
+                </button>
               )}
             </div>
           )}
