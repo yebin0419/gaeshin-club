@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Pin, BarChart2, MessageCircle, Heart } from 'lucide-react'
+import { Pin, BarChart2, MessageCircle, Heart, Pencil } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import Badge from '@/components/ui/Badge'
 
@@ -45,9 +45,10 @@ interface Props {
   clubId: string
   posts: Post[]
   userId: string | null
+  isMember: boolean
 }
 
-export default function BoardClient({ clubId, posts: initialPosts, userId }: Props) {
+export default function BoardClient({ clubId, posts: initialPosts, userId, isMember }: Props) {
   const router = useRouter()
   const [posts, setPosts] = useState<Post[]>(initialPosts)
 
@@ -124,10 +125,23 @@ export default function BoardClient({ clubId, posts: initialPosts, userId }: Pro
   }
 
   if (posts.length === 0) {
-    return <div className="mt-16 text-center text-gray-400 text-sm">게시글이 없습니다.</div>
+    return (
+      <>
+        <div className="mt-16 text-center text-gray-400 text-sm">게시글이 없습니다.</div>
+        {isMember && (
+          <Link
+            href={`/clubs/${clubId}/board/write`}
+            className="fixed bottom-24 right-4 flex items-center gap-1.5 bg-[#C0392B] text-white text-sm font-medium px-4 py-3 rounded-full shadow-lg hover:bg-[#a93226] transition-colors z-20"
+          >
+            <Pencil size={15} />글쓰기
+          </Link>
+        )}
+      </>
+    )
   }
 
   return (
+    <>
     <div className="flex flex-col gap-2">
       {posts.map(post => (
         <div key={post.id} className="relative">
@@ -182,5 +196,14 @@ export default function BoardClient({ clubId, posts: initialPosts, userId }: Pro
         </div>
       ))}
     </div>
+    {isMember && (
+      <Link
+        href={`/clubs/${clubId}/board/write`}
+        className="fixed bottom-24 right-4 flex items-center gap-1.5 bg-[#C0392B] text-white text-sm font-medium px-4 py-3 rounded-full shadow-lg hover:bg-[#a93226] transition-colors z-20"
+      >
+        <Pencil size={15} />글쓰기
+      </Link>
+    )}
+    </>
   )
 }

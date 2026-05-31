@@ -4,7 +4,7 @@ export const revalidate = 0
 import { createClient } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Plus } from 'lucide-react'
+import { ArrowLeft } from 'lucide-react'
 import BoardClient from './BoardClient'
 
 export default async function BoardPage({ params }: { params: Promise<{ id: string }> }) {
@@ -52,18 +52,14 @@ export default async function BoardPage({ params }: { params: Promise<{ id: stri
             </Link>
             <h1 className="font-bold text-lg text-gray-900">{club.name} 게시판</h1>
           </div>
-          {membership && (
-            <Link href={`/clubs/${id}/board/write`}
-              className="flex items-center gap-1 text-sm text-[#C0392B] font-medium hover:bg-[#FADBD8] px-2 py-1 rounded-lg">
-              <Plus size={16} />글쓰기
-            </Link>
-          )}
+          {/* 글쓰기 버튼은 BoardClient FAB으로 이동 */}
         </div>
 
         <BoardClient
           clubId={id}
           posts={postsWithRole as any}
           userId={user?.id ?? null}
+          isMember={!!membership}
         />
       </div>
     </div>
