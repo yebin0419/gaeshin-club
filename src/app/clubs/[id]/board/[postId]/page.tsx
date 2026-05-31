@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft, Pin, BarChart2, MessageCircle, Send, Heart, CornerDownRight } from 'lucide-react'
@@ -67,6 +67,7 @@ export default function PostDetailPage() {
   const [replySubmitting, setReplySubmitting] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [roleMap, setRoleMap] = useState<Record<string, string>>({})
+  const roleMapRef = useRef<Record<string, string>>({})
   const [pageLoading, setPageLoading] = useState(true)
   const [commentsLoading, setCommentsLoading] = useState(true)
 
@@ -116,6 +117,7 @@ export default function PostDetailPage() {
       const map: Record<string, string> = {}
       members?.forEach((m: any) => { map[m.user_id] = m.role })
       setRoleMap(map)
+      roleMapRef.current = map
 
       setPageLoading(false)
 
@@ -162,14 +164,20 @@ export default function PostDetailPage() {
   }
 
   const fetchComments = async () => {
-    const supabase = createClient()
-    const { data, error } = await supabase
-      .from('comments')
-      .select('*')
-      .eq('post_id', postId)
-      .order('created_at', { ascending: true })
-    if (error) { console.error('댓글 fetch 에러:', error); return }
-    setComments(await assembleComments(data ?? [], roleMap))
+    try {
+      const supabase = createClient()
+      const { data, error } = await supabase
+        .from('comments')
+        .select('*')
+        .eq('post_id', postId)
+        .order('created_at', { ascending: true })
+      if (error) { console.error('댓글 fetch 에러:', error); return }
+      const assembled = await assembleComments(data ?? [], roleMapRef.current)
+      console.log('fetchComments 성공 — 댓글 수:', assembled.length)
+      setComments(assembled)
+    } catch (e) {
+      console.error('fetchComments 예외:', e)
+    }
   }
 
 
