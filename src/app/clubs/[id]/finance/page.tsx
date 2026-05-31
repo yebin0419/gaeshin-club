@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
 import FinanceClient from './FinanceClient'
 
-const ADMIN_ROLES = ['app_admin', 'admin', 'owner']
+const ADMIN_ROLES = ['app_admin', 'admin']
 
 export default async function FinancePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
