@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Pin, BarChart2 } from 'lucide-react'
+import { Pin, BarChart2, MessageCircle, Heart } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import Badge from '@/components/ui/Badge'
 
@@ -15,6 +15,8 @@ interface Post {
   created_at: string
   author_id: string | null
   author: { name: string } | null
+  comments: { count: number }[]
+  post_likes: { count: number }[]
 }
 
 interface Props {
@@ -53,9 +55,21 @@ export default function BoardClient({ clubId, posts, userId }: Props) {
               {post.type === 'general' && <Badge variant="default">일반</Badge>}
             </div>
             <h3 className="font-medium text-gray-900 text-sm line-clamp-2 pr-16">{post.title}</h3>
-            <p className="text-xs text-gray-400 mt-1.5">
-              {post.author?.name ?? '알 수 없음'} · {new Date(post.created_at).toLocaleDateString('ko-KR')}
-            </p>
+            <div className="flex items-center justify-between mt-1.5">
+              <p className="text-xs text-gray-400">
+                {post.author?.name ?? '알 수 없음'} · {new Date(post.created_at).toLocaleDateString('ko-KR')}
+              </p>
+              <div className="flex items-center gap-2.5">
+                <span className="flex items-center gap-0.5 text-xs text-gray-400">
+                  <MessageCircle size={12} />
+                  {post.comments?.[0]?.count ?? 0}
+                </span>
+                <span className="flex items-center gap-0.5 text-xs text-gray-400">
+                  <Heart size={12} />
+                  {post.post_likes?.[0]?.count ?? 0}
+                </span>
+              </div>
+            </div>
           </Link>
 
           {userId && userId === post.author_id && (

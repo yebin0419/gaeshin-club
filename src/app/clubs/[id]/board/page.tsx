@@ -21,7 +21,7 @@ export default async function BoardPage({ params }: { params: Promise<{ id: stri
 
   const { data: posts } = await supabase
     .from('posts')
-    .select('id, title, content, type, is_pinned, created_at, author_id, author:users(name)')
+    .select('id, title, content, type, is_pinned, created_at, author_id, author:users(name), comments(count), post_likes(count)')
     .eq('club_id', id)
     .order('is_pinned', { ascending: false })
     .order('created_at', { ascending: false })
