@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Pin, BarChart2, MessageCircle, Send, Heart } from 'lucide-react'
+import { ArrowLeft, Pin, BarChart2, MessageCircle, Send, Heart, CornerDownRight } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import Badge from '@/components/ui/Badge'
 
@@ -23,6 +23,7 @@ interface Comment {
   content: string
   created_at: string
   user_id: string | null
+  parent_id: string | null
   author: { name: string } | null
 }
 
@@ -40,11 +41,13 @@ export default function PostDetailPage() {
   const [editContent, setEditContent] = useState('')
   const [editingCommentId, setEditingCommentId] = useState<string | null>(null)
   const [editCommentContent, setEditCommentContent] = useState('')
+  const [replyingToId, setReplyingToId] = useState<string | null>(null)
+  const [replyText, setReplyText] = useState('')
+  const [replySubmitting, setReplySubmitting] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [pageLoading, setPageLoading] = useState(true)
   const [commentsLoading, setCommentsLoading] = useState(true)
 
-  // 게시글 + 유저 세션 로드
   useEffect(() => {
     const supabase = createClient()
 
@@ -64,7 +67,6 @@ export default function PostDetailPage() {
       const currentUserId = user?.id ?? null
       setUserId(currentUserId)
 
-      // 좋아요 수 + 현재 유저 좋아요 여부 로드
       const supabase2 = createClient()
       const [{ count }, { data: userLike }] = await Promise.all([
         supabase2
@@ -89,14 +91,13 @@ export default function PostDetailPage() {
     load()
   }, [postId, clubId])
 
-  // 댓글 로드
   useEffect(() => {
     const supabase = createClient()
 
     const loadComments = async () => {
       const { data } = await supabase
         .from('comments')
-        .select('id, content, created_at, user_id, author:users(name)')
+        .select('id, content, created_at, user_id, parent_id, author:users(name)')
         .eq('post_id', postId)
         .order('created_at', { ascending: true })
 
@@ -111,7 +112,7 @@ export default function PostDetailPage() {
     const supabase = createClient()
     const { data } = await supabase
       .from('comments')
-      .select('id, content, created_at, user_id, author:users(name)')
+      .select('id, content, created_at, user_id, parent_id, author:users(name)')
       .eq('post_id', postId)
       .order('created_at', { ascending: true })
     setComments((data as unknown as Comment[]) ?? [])
@@ -121,7 +122,7 @@ export default function PostDetailPage() {
     if (!window.confirm('댓글을 삭제하시겠습니까?')) return
     const supabase = createClient()
     const { error } = await supabase.from('comments').delete().eq('id', commentId)
-    if (!error) setComments(prev => prev.filter(c => c.id !== commentId))
+    if (!error) setComments(prev => prev.filter(c => c.id !== commentId && c.parent_id !== commentId))
   }
 
   const handleCommentEditSave = async (commentId: string) => {
@@ -135,6 +136,24 @@ export default function PostDetailPage() {
       setComments(prev => prev.map(c => c.id === commentId ? { ...c, content: editCommentContent.trim() } : c))
       setEditingCommentId(null)
     }
+  }
+
+  const handleReplySubmit = async (parentId: string) => {
+    if (!replyText.trim() || !userId) return
+    setReplySubmitting(true)
+    const supabase = createClient()
+    const { error } = await supabase.from('comments').insert({
+      post_id: postId,
+      user_id: userId,
+      content: replyText.trim(),
+      parent_id: parentId,
+    })
+    if (!error) {
+      setReplyText('')
+      setReplyingToId(null)
+      await fetchComments()
+    }
+    setReplySubmitting(false)
   }
 
   const handleDelete = async () => {
@@ -160,7 +179,6 @@ export default function PostDetailPage() {
   const handleLike = async () => {
     if (!userId) return
 
-    // 낙관적 업데이트
     const prevLiked = isLiked
     const prevCount = likeCount
     setIsLiked(!prevLiked)
@@ -173,18 +191,12 @@ export default function PostDetailPage() {
         .delete()
         .eq('post_id', postId)
         .eq('user_id', userId)
-      if (error) {
-        setIsLiked(prevLiked)
-        setLikeCount(prevCount)
-      }
+      if (error) { setIsLiked(prevLiked); setLikeCount(prevCount) }
     } else {
       const { error } = await supabase
         .from('post_likes')
         .insert({ post_id: postId, user_id: userId })
-      if (error) {
-        setIsLiked(prevLiked)
-        setLikeCount(prevCount)
-      }
+      if (error) { setIsLiked(prevLiked); setLikeCount(prevCount) }
     }
   }
 
@@ -196,6 +208,7 @@ export default function PostDetailPage() {
       post_id: postId,
       user_id: userId,
       content: commentText.trim(),
+      parent_id: null,
     })
     if (!error) {
       setCommentText('')
@@ -226,6 +239,96 @@ export default function PostDetailPage() {
       </div>
     )
   }
+
+  const rootComments = comments.filter(c => !c.parent_id)
+  const totalCount = comments.length
+
+  const renderComment = (c: Comment, isReply = false) => (
+    <div key={c.id} className={isReply ? 'ml-8 mt-1' : ''}>
+      <div className={`bg-white rounded-xl border border-gray-200 px-4 py-3 ${isReply ? 'border-l-2 border-l-gray-200' : ''}`}>
+        <div className="flex items-center justify-between mb-1">
+          <span className="text-xs font-semibold text-gray-700 flex items-center gap-1">
+            {isReply && <CornerDownRight size={12} className="text-gray-400" />}
+            {c.author?.name ?? '알 수 없음'}
+          </span>
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-gray-400">
+              {new Date(c.created_at).toLocaleDateString('ko-KR', { month: 'long', day: 'numeric' })}{' '}
+              {new Date(c.created_at).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}
+            </span>
+            {/* 답글 버튼 — 로그인한 유저이면 대댓글에는 표시 안 함 (1단계만 허용) */}
+            {userId && !isReply && editingCommentId !== c.id && (
+              <button
+                onClick={() => { setReplyingToId(replyingToId === c.id ? null : c.id); setReplyText('') }}
+                className="text-xs text-gray-400 hover:text-[#C0392B]"
+              >
+                답글
+              </button>
+            )}
+            {userId && userId === c.user_id && (
+              editingCommentId === c.id ? (
+                <>
+                  <button onClick={() => handleCommentEditSave(c.id)} className="text-xs text-[#C0392B] hover:underline font-medium">저장</button>
+                  <button onClick={() => setEditingCommentId(null)} className="text-xs text-gray-400 hover:underline">취소</button>
+                </>
+              ) : (
+                <>
+                  <button
+                    onClick={() => { setEditCommentContent(c.content); setEditingCommentId(c.id) }}
+                    className="text-xs text-gray-400 hover:text-gray-600"
+                  >수정</button>
+                  <button onClick={() => handleCommentDelete(c.id)} className="text-xs text-gray-400 hover:text-red-500">삭제</button>
+                </>
+              )
+            )}
+          </div>
+        </div>
+        {editingCommentId === c.id ? (
+          <textarea
+            value={editCommentContent}
+            onChange={e => setEditCommentContent(e.target.value)}
+            rows={3}
+            className="w-full mt-1 text-sm text-gray-800 leading-relaxed resize-none outline-none border border-gray-200 rounded-lg px-3 py-2 focus:border-[#C0392B] focus:ring-2 focus:ring-[#FADBD8]"
+          />
+        ) : (
+          <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">{c.content}</p>
+        )}
+      </div>
+
+      {/* 답글 입력창 */}
+      {!isReply && replyingToId === c.id && userId && (
+        <div className="ml-8 mt-1 bg-white rounded-xl border border-gray-200 p-3 flex gap-2 items-end">
+          <textarea
+            value={replyText}
+            onChange={e => setReplyText(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleReplySubmit(c.id) } }}
+            placeholder="답글을 입력하세요…"
+            rows={2}
+            autoFocus
+            className="flex-1 resize-none text-sm text-gray-800 placeholder-gray-400 outline-none leading-relaxed"
+          />
+          <div className="flex flex-col gap-1">
+            <button
+              onClick={() => handleReplySubmit(c.id)}
+              disabled={replySubmitting || !replyText.trim()}
+              className="shrink-0 flex items-center justify-center w-8 h-8 rounded-lg bg-[#C0392B] text-white disabled:opacity-40 hover:bg-[#a93226] transition-colors"
+            >
+              <Send size={13} />
+            </button>
+            <button
+              onClick={() => { setReplyingToId(null); setReplyText('') }}
+              className="shrink-0 flex items-center justify-center w-8 h-8 rounded-lg border border-gray-200 text-gray-400 hover:bg-gray-50 text-xs"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 해당 댓글의 대댓글 목록 */}
+      {!isReply && comments.filter(r => r.parent_id === c.id).map(reply => renderComment(reply, true))}
+    </div>
+  )
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -314,56 +417,18 @@ export default function PostDetailPage() {
           <div className="flex items-center gap-1.5 mb-3 px-1">
             <MessageCircle size={15} className="text-gray-400" />
             <span className="text-sm font-medium text-gray-600">
-              {commentsLoading ? '댓글 로딩 중...' : `댓글 ${comments.length}개`}
+              {commentsLoading ? '댓글 로딩 중...' : `댓글 ${totalCount}개`}
             </span>
           </div>
 
-          {/* 댓글 목록 */}
+          {/* 댓글 + 대댓글 목록 */}
           <div className="flex flex-col gap-2 mb-4">
-            {!commentsLoading && comments.length === 0 && (
+            {!commentsLoading && rootComments.length === 0 && (
               <p className="text-xs text-center text-gray-400 py-6">
                 아직 댓글이 없습니다. 첫 댓글을 남겨보세요!
               </p>
             )}
-            {comments.map(c => (
-              <div key={c.id} className="bg-white rounded-xl border border-gray-200 px-4 py-3">
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs font-semibold text-gray-700">{c.author?.name ?? '알 수 없음'}</span>
-                  <div className="flex items-center gap-3">
-                    <span className="text-xs text-gray-400">
-                      {new Date(c.created_at).toLocaleDateString('ko-KR', { month: 'long', day: 'numeric' })}{' '}
-                      {new Date(c.created_at).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}
-                    </span>
-                    {userId && userId === c.user_id && (
-                      editingCommentId === c.id ? (
-                        <>
-                          <button onClick={() => handleCommentEditSave(c.id)} className="text-xs text-[#C0392B] hover:underline font-medium">저장</button>
-                          <button onClick={() => setEditingCommentId(null)} className="text-xs text-gray-400 hover:underline">취소</button>
-                        </>
-                      ) : (
-                        <>
-                          <button
-                            onClick={() => { setEditCommentContent(c.content); setEditingCommentId(c.id) }}
-                            className="text-xs text-gray-400 hover:text-gray-600"
-                          >수정</button>
-                          <button onClick={() => handleCommentDelete(c.id)} className="text-xs text-gray-400 hover:text-red-500">삭제</button>
-                        </>
-                      )
-                    )}
-                  </div>
-                </div>
-                {editingCommentId === c.id ? (
-                  <textarea
-                    value={editCommentContent}
-                    onChange={e => setEditCommentContent(e.target.value)}
-                    rows={3}
-                    className="w-full mt-1 text-sm text-gray-800 leading-relaxed resize-none outline-none border border-gray-200 rounded-lg px-3 py-2 focus:border-[#C0392B] focus:ring-2 focus:ring-[#FADBD8]"
-                  />
-                ) : (
-                  <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">{c.content}</p>
-                )}
-              </div>
-            ))}
+            {rootComments.map(c => renderComment(c, false))}
           </div>
 
           {/* 댓글 입력 */}
