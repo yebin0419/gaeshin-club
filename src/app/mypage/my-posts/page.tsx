@@ -45,7 +45,7 @@ export default function MyPostsPage() {
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-2xl mx-auto px-4 pb-24">
         <div className="sticky top-0 bg-gray-50 z-10 flex items-center gap-3 py-4">
-          <button onClick={() => router.back()} className="p-1 text-gray-500 hover:text-[#C0392B]">
+          <button onClick={() => router.push('/profile')} className="p-1 text-gray-500 hover:text-[#C0392B]">
             <ArrowLeft size={22} />
           </button>
           <h1 className="font-bold text-lg text-gray-900">내가 쓴 글</h1>
