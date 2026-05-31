@@ -91,32 +91,55 @@ export default function PostDetailPage() {
     load()
   }, [postId, clubId])
 
-  useEffect(() => {
+  const assembleComments = async (flat: any[]): Promise<Comment[]> => {
     const supabase = createClient()
-
-    const loadComments = async () => {
-      const { data } = await supabase
-        .from('comments')
-        .select('id, content, created_at, user_id, parent_id, author:users(name)')
-        .eq('post_id', postId)
-        .order('created_at', { ascending: true })
-
-      setComments((data as unknown as Comment[]) ?? [])
-      setCommentsLoading(false)
+    const userIds = [...new Set(flat.map((c: any) => c.user_id).filter(Boolean))]
+    let nameMap: Record<string, string> = {}
+    if (userIds.length > 0) {
+      const { data: users, error } = await supabase
+        .from('users')
+        .select('id, name')
+        .in('id', userIds)
+      if (error) console.error('댓글 유저 조회 에러:', error)
+      users?.forEach((u: any) => { nameMap[u.id] = u.name })
     }
+    return flat.map((c: any) => ({
+      id: c.id,
+      content: c.content,
+      created_at: c.created_at,
+      user_id: c.user_id ?? null,
+      parent_id: c.parent_id ?? null,
+      author: c.user_id ? { name: nameMap[c.user_id] ?? '알 수 없음' } : null,
+    }))
+  }
 
-    loadComments()
-  }, [postId])
+  const loadComments = async () => {
+    const supabase = createClient()
+    const { data, error } = await supabase
+      .from('comments')
+      .select('*')
+      .eq('post_id', postId)
+      .order('created_at', { ascending: true })
+    if (error) { console.error('댓글 fetch 에러:', error); setCommentsLoading(false); return }
+    setComments(await assembleComments(data ?? []))
+    setCommentsLoading(false)
+  }
 
   const fetchComments = async () => {
     const supabase = createClient()
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('comments')
-      .select('id, content, created_at, user_id, parent_id, author:users(name)')
+      .select('*')
       .eq('post_id', postId)
       .order('created_at', { ascending: true })
-    setComments((data as unknown as Comment[]) ?? [])
+    if (error) { console.error('댓글 fetch 에러:', error); return }
+    setComments(await assembleComments(data ?? []))
   }
+
+  useEffect(() => {
+    loadComments()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [postId])
 
   const handleCommentDelete = async (commentId: string) => {
     if (!window.confirm('댓글을 삭제하시겠습니까?')) return
@@ -148,7 +171,9 @@ export default function PostDetailPage() {
       content: replyText.trim(),
       parent_id: parentId,
     })
-    if (!error) {
+    if (error) {
+      console.error('댓글 insert 에러:', error)
+    } else {
       setReplyText('')
       setReplyingToId(null)
       await fetchComments()
@@ -210,7 +235,9 @@ export default function PostDetailPage() {
       content: commentText.trim(),
       parent_id: null,
     })
-    if (!error) {
+    if (error) {
+      console.error('댓글 insert 에러:', error)
+    } else {
       setCommentText('')
       await fetchComments()
     }
