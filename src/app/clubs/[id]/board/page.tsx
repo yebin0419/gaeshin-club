@@ -19,7 +19,7 @@ export default async function BoardPage({ params }: { params: Promise<{ id: stri
   const { data: club } = await supabase.from('clubs').select('*').eq('id', id).single()
   if (!club) notFound()
 
-  // 3. 게시글과 멤버 목록 동시에 가져오기 (방장님 기존 로직 100% 복구!)
+  // 3. 게시글과 멤버 목록 동시에 가져오기 (방장님 기존 로직 완벽 복원)
   const [{ data: posts }, { data: members }] = await Promise.all([
     supabase
       .from('posts')
@@ -33,18 +33,18 @@ export default async function BoardPage({ params }: { params: Promise<{ id: stri
       .eq('club_id', id)
   ])
 
-  // 4. 멤버 역할 맵핑 (방장님 기존 로직)
+  // 4. 멤버 역할 맵핑 
   const roleMap: Record<string, string> = Object.fromEntries(
     (members ?? []).map(m => [m.user_id, m.role])
   )
 
-  // 5. 게시글에 역할(role) 합치기 + Vercel 깐깐한 TS 에러 해결!
+  // 5. 게시글에 역할(role) 합치기
   const postsWithRole = (posts ?? []).map((p: any) => ({
     ...p,
     author_role: p.author_id ? (roleMap[p.author_id] ?? 'member') : null,
   }))
 
-  // 6. 진짜 멤버인지 깐깐하게 확인하는 로직 (방장님 기존 로직)
+  // 6. 진짜 멤버인지 깐깐하게 확인하는 로직
   let isMember = false;
   if (userId) {
     if (club.owner_id === userId) {
@@ -54,22 +54,27 @@ export default async function BoardPage({ params }: { params: Promise<{ id: stri
     }
   }
 
+  // 방장님의 원래 예쁜 UI 디자인 유지!
   return (
-    <div className="p-4">
-      <div className="flex items-center mb-6">
-        <Link href={`/clubs/${id}`} className="mr-4 text-gray-500 hover:text-gray-700">
-          <ArrowLeft className="w-6 h-6" />
-        </Link>
-        <h1 className="font-bold text-lg text-gray-900">{club.name} 게시판</h1>
+    <div className="min-h-screen bg-gray-50">
+      <div className="max-w-2xl mx-auto px-4 pb-24">
+        <div className="sticky top-0 bg-gray-50 z-10 flex items-center justify-between py-4">
+          <div className="flex items-center gap-3">
+            <Link href={`/clubs/${id}`} className="p-1 text-gray-500 hover:text-[#C0392B]">
+              <ArrowLeft size={22} />
+            </Link>
+            <h1 className="font-bold text-lg text-gray-900">{club.name} 게시판</h1>
+          </div>
+        </div>
+        
+        {/* 모든 에러를 해결한 완벽한 데이터 전달! */}
+        <BoardClient
+          clubId={id}
+          posts={postsWithRole as any}
+          userId={userId}
+          isMember={isMember}
+        />
       </div>
-
-      {/* 이제 완벽한 데이터를 BoardClient에 전달합니다! */}
-      <BoardClient
-        clubId={id}
-        posts={postsWithRole as any}
-        userId={userId}
-        isMember={isMember}
-      />
     </div>
   )
 }
