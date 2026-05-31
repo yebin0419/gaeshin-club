@@ -14,6 +14,7 @@ interface Post {
   type: string
   is_pinned: boolean
   created_at: string
+  author_id: string | null
   author: { name: string } | null
 }
 
@@ -34,6 +35,8 @@ export default function PostDetailPage() {
   const [commentText, setCommentText] = useState('')
   const [isLiked, setIsLiked] = useState(false)
   const [likeCount, setLikeCount] = useState(0)
+  const [isEditing, setIsEditing] = useState(false)
+  const [editContent, setEditContent] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [pageLoading, setPageLoading] = useState(true)
   const [commentsLoading, setCommentsLoading] = useState(true)
@@ -46,7 +49,7 @@ export default function PostDetailPage() {
       const [{ data: postData }, { data: { user } }] = await Promise.all([
         supabase
           .from('posts')
-          .select('id, title, content, type, is_pinned, created_at, author:users(name)')
+          .select('id, title, content, type, is_pinned, created_at, author_id, author:users(name)')
           .eq('id', postId)
           .eq('club_id', clubId)
           .single(),
@@ -109,6 +112,26 @@ export default function PostDetailPage() {
       .eq('post_id', postId)
       .order('created_at', { ascending: true })
     setComments((data as unknown as Comment[]) ?? [])
+  }
+
+  const handleDelete = async () => {
+    if (!window.confirm('정말 이 게시글을 삭제하시겠습니까?')) return
+    const supabase = createClient()
+    await supabase.from('posts').delete().eq('id', postId)
+    router.push(`/clubs/${clubId}/board`)
+  }
+
+  const handleEditSave = async () => {
+    if (!editContent.trim()) return
+    const supabase = createClient()
+    const { error } = await supabase
+      .from('posts')
+      .update({ content: editContent.trim() })
+      .eq('id', postId)
+    if (!error) {
+      setPost(prev => prev ? { ...prev, content: editContent.trim() } : prev)
+      setIsEditing(false)
+    }
   }
 
   const handleLike = async () => {
@@ -202,12 +225,41 @@ export default function PostDetailPage() {
             {post.type === 'general' && <Badge variant="default">일반</Badge>}
           </div>
           <h2 className="text-lg font-bold text-gray-900 mb-2 leading-snug">{post.title}</h2>
-          <p className="text-xs text-gray-400 mb-4">
-            {post.author?.name ?? '알 수 없음'} ·{' '}
-            {new Date(post.created_at).toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' })}
-          </p>
+          <div className="flex items-center justify-between mb-4">
+            <p className="text-xs text-gray-400">
+              {post.author?.name ?? '알 수 없음'} ·{' '}
+              {new Date(post.created_at).toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' })}
+            </p>
+            {userId && userId === post.author_id && (
+              <div className="flex items-center gap-3">
+                {isEditing ? (
+                  <>
+                    <button onClick={handleEditSave} className="text-xs text-[#C0392B] hover:underline font-medium">저장</button>
+                    <button onClick={() => setIsEditing(false)} className="text-xs text-gray-400 hover:underline">취소</button>
+                  </>
+                ) : (
+                  <>
+                    <button
+                      onClick={() => { setEditContent(post.content); setIsEditing(true) }}
+                      className="text-xs text-gray-400 hover:text-gray-600"
+                    >수정</button>
+                    <button onClick={handleDelete} className="text-xs text-gray-400 hover:text-red-500">삭제</button>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
           <hr className="border-gray-100 mb-4" />
-          <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">{post.content}</p>
+          {isEditing ? (
+            <textarea
+              value={editContent}
+              onChange={e => setEditContent(e.target.value)}
+              rows={8}
+              className="w-full text-sm text-gray-800 leading-relaxed resize-none outline-none border border-gray-200 rounded-lg px-3 py-2 focus:border-[#C0392B] focus:ring-2 focus:ring-[#FADBD8]"
+            />
+          ) : (
+            <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">{post.content}</p>
+          )}
 
           {/* 좋아요 버튼 */}
           <div className="mt-5 pt-4 border-t border-gray-100 flex items-center gap-2">
