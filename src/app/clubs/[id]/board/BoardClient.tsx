@@ -53,7 +53,16 @@ export default function BoardClient({ clubId, posts, userId }: Props) {
     e.preventDefault()
     if (!window.confirm('정말 이 게시글을 삭제하시겠습니까?')) return
     const supabase = createClient()
-    await supabase.from('posts').delete().eq('id', postId)
+
+    const { error: likesErr } = await supabase.from('post_likes').delete().eq('post_id', postId)
+    if (likesErr) { console.error('게시글 삭제 에러:', likesErr); alert('삭제 중 에러가 발생했습니다.'); return }
+
+    const { error: commentsErr } = await supabase.from('comments').delete().eq('post_id', postId)
+    if (commentsErr) { console.error('게시글 삭제 에러:', commentsErr); alert('삭제 중 에러가 발생했습니다.'); return }
+
+    const { error: postErr } = await supabase.from('posts').delete().eq('id', postId)
+    if (postErr) { console.error('게시글 삭제 에러:', postErr); alert('삭제 중 에러가 발생했습니다.'); return }
+
     router.refresh()
   }
 
