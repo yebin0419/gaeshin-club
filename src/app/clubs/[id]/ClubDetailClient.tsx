@@ -24,6 +24,7 @@ export default function ClubDetailClient({ club, memberCount }: Props) {
   const supabase = useMemo(() => createClient(), [])
   const [showForm, setShowForm] = useState(false)
   const [contact, setContact] = useState('')
+  const [introduction, setIntroduction] = useState('')
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
   const [error, setError] = useState('')
@@ -76,9 +77,10 @@ export default function ClubDetailClient({ club, memberCount }: Props) {
 
   const handleApply = async () => {
     if (!contact) { setError('연락처를 입력해 주세요.'); return }
+    if (!introduction) { setError('자기소개 및 지원동기를 입력해 주세요.'); return }
     setLoading(true)
     const { error: err } = await supabase.from('club_applications').insert({
-      club_id: club.id, user_id: userId, contact, status: 'pending',
+      club_id: club.id, user_id: userId, contact, introduction, status: 'pending',
     })
     if (err) { setError('신청 중 오류가 발생했습니다.'); setLoading(false); return }
     setSuccess(true)
@@ -198,6 +200,17 @@ export default function ClubDetailClient({ club, memberCount }: Props) {
                 <div className="bg-white rounded-2xl border border-gray-200 p-5 flex flex-col gap-3">
                   <h3 className="font-semibold text-gray-800">가입 신청</h3>
                   <Input label="연락처 (전화번호 또는 카카오ID)" value={contact} onChange={e => setContact(e.target.value)} placeholder="010-0000-0000" />
+                  <div className="flex flex-col gap-1">
+                    <label className="text-sm font-medium text-gray-700">자기소개 및 지원동기</label>
+                    <textarea
+                      value={introduction}
+                      onChange={e => setIntroduction(e.target.value)}
+                      placeholder="동아리에 지원하는 이유와 간단한 자기소개를 작성해 주세요."
+                      rows={4}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm outline-none transition-colors resize-none
+                        focus:border-[#C0392B] focus:ring-2 focus:ring-[#FADBD8]"
+                    />
+                  </div>
                   {error && <p className="text-xs text-red-500">{error}</p>}
                   <div className="flex gap-2">
                     <Button variant="outline" className="flex-1" onClick={() => setShowForm(false)}>취소</Button>

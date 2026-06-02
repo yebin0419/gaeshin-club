@@ -118,6 +118,7 @@ export interface ClubApplication {
   club_id: string
   user_id: string
   contact: string
+  introduction?: string
   status: 'pending' | 'approved' | 'rejected'
   reject_reason: string | null
   created_at: string

@@ -12,6 +12,7 @@ interface Application {
   id: string
   user_id: string
   contact: string
+  introduction?: string
   created_at: string
   user?: { name: string; department: string; student_id: string }
 }
@@ -109,6 +110,12 @@ export default function MembersClient({ clubId, clubName, applications: initApps
                     </div>
                     <p className="text-xs text-gray-400">{new Date(app.created_at).toLocaleDateString('ko-KR')}</p>
                   </div>
+                  {app.introduction && (
+                    <div className="mb-2 px-3 py-2 bg-gray-50 rounded-lg">
+                      <p className="text-xs text-gray-500 font-medium mb-0.5">자기소개 및 지원동기</p>
+                      <p className="text-xs text-gray-700 whitespace-pre-wrap">{app.introduction}</p>
+                    </div>
+                  )}
                   <div className="flex gap-1 mb-2">
                     <Input
                       value={rejectReason[app.id] ?? ''}
