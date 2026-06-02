@@ -36,6 +36,7 @@ export default function LoginPage() {
       <div className="w-full max-w-sm">
         {/* 로고 */}
         <div className="text-center mb-8">
+          <p className="text-xl font-bold text-gray-500 tracking-widest">CBNU</p>
           <h1 className="text-3xl font-bold text-[#C0392B]">개신클럽</h1>
           <p className="mt-2 text-sm text-gray-500">충북대학교 동아리 커뮤니티</p>
         </div>
