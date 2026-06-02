@@ -42,7 +42,8 @@ export default async function PersonalChatPage({
     .neq('user_id', user.id)
     .maybeSingle()
 
-  const otherName = (other?.user as { name: string } | null)?.name ?? '대화 상대'
+  const u = other?.user as unknown
+  const otherName = (Array.isArray(u) ? (u[0] as { name: string })?.name : (u as { name: string } | null)?.name) ?? '대화 상대'
 
   const { data: messages } = await supabase
     .from('messages')
