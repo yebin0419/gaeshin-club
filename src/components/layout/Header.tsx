@@ -17,8 +17,9 @@ export default function Header() {
   return (
     <header className="sticky top-0 z-50 bg-white border-b border-gray-200">
       <div className="max-w-2xl mx-auto px-4 h-14 flex items-center justify-between">
-        <button onClick={() => router.push('/home')} className="text-xl font-bold text-[#C0392B]">
-          개신클럽
+        <button onClick={() => router.push('/home')} className="flex flex-col items-center leading-tight">
+          <span className="text-[10px] font-semibold text-gray-400 tracking-widest">CBNU</span>
+          <span className="text-xl font-bold text-[#C0392B]">개신클럽</span>
         </button>
         <div className="flex items-center gap-2">
           <button
