@@ -178,17 +178,37 @@ export default function ClubDetailClient({ club, memberCount }: Props) {
         {/* 버튼 영역 */}
         <div className="flex flex-col gap-2">
           {isOwner ? (
-            <Button
-              size="lg"
-              className="w-full bg-[#C0392B] hover:bg-[#a93226] text-white"
-              onClick={() => router.push(`/clubs/${club.id}/board`)}
-            >
-              게시판 입장
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                size="lg"
+                className="flex-1 bg-[#C0392B] hover:bg-[#a93226] text-white"
+                onClick={() => router.push(`/clubs/${club.id}/board`)}
+              >
+                게시판 입장
+              </Button>
+              <Button
+                size="lg"
+                variant="outline"
+                className="flex-1"
+                onClick={() => router.push(`/clubs/${club.id}/finance`)}
+              >
+                회비 내역
+              </Button>
+            </div>
           ) : isMember ? (
-            <Button size="lg" className="w-full" onClick={() => router.push(`/clubs/${club.id}/board`)}>
-              게시판 보기
-            </Button>
+            <div className="flex gap-2">
+              <Button size="lg" className="flex-1" onClick={() => router.push(`/clubs/${club.id}/board`)}>
+                게시판 보기
+              </Button>
+              <Button
+                size="lg"
+                variant="outline"
+                className="flex-1"
+                onClick={() => router.push(`/clubs/${club.id}/finance`)}
+              >
+                회비 내역
+              </Button>
+            </div>
           ) : isRecruiting ? (
             <>
               {!showForm && !success && (
