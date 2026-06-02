@@ -17,7 +17,7 @@ interface Props {
   isOwner: boolean
 }
 
-export default function FinanceClient({ clubId, clubName, finances: initialFinances, isOwner }: Props) {
+export default function FinanceClient({ clubId, clubName, finances: initialFinances, isStaff, isOwner }: Props) {
   const router = useRouter()
   const supabase = createClient()
   const fileRef = useRef<HTMLInputElement>(null)
@@ -110,7 +110,7 @@ export default function FinanceClient({ clubId, clubName, finances: initialFinan
             <button onClick={() => router.back()} className="p-1 text-gray-500"><ArrowLeft size={22} /></button>
             <h1 className="font-bold text-lg">{clubName} 회비</h1>
           </div>
-          {isOwner && (
+          {isStaff && (
             <Button size="sm" onClick={() => { setShowForm(v => !v); setEditingId(null) }}>
               <Plus size={15} />내역 추가
             </Button>
@@ -123,8 +123,8 @@ export default function FinanceClient({ clubId, clubName, finances: initialFinan
           <p className="text-3xl font-bold">{fmt(balance)}</p>
         </div>
 
-        {/* 내역 추가 폼 (방장 전용) */}
-        {isOwner && showForm && (
+        {/* 내역 추가 폼 (방장/총무 전용) */}
+        {isStaff && showForm && (
           <div className="bg-white rounded-2xl border border-gray-200 p-5 mb-4 flex flex-col gap-3">
             <h3 className="font-semibold text-gray-800">내역 추가</h3>
             <div className="flex gap-2">
@@ -155,7 +155,7 @@ export default function FinanceClient({ clubId, clubName, finances: initialFinan
         <div className="flex flex-col gap-2">
           {list.length > 0 ? list.map((f: Finance) => (
             <div key={f.id} className="bg-white rounded-xl border border-gray-200 p-4">
-              {isOwner && editingId === f.id ? (
+              {isStaff && editingId === f.id ? (
                 /* 인라인 수정 폼 */
                 <div className="flex flex-col gap-3">
                   <div className="flex gap-2">
@@ -201,7 +201,7 @@ export default function FinanceClient({ clubId, clubName, finances: initialFinan
                           className="text-xs text-[#C0392B] hover:underline">영수증</a>
                       )}
                     </div>
-                    {isOwner && (
+                    {isStaff && (
                       <div className="flex gap-1">
                         <button
                           onClick={() => startEdit(f)}

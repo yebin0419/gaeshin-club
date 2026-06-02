@@ -33,9 +33,9 @@ interface Props {
   myRole: string
 }
 
-const roleLabel: Record<string, string> = { owner: '방장', staff: '임원진', member: '일반 부원', alumni: '졸업/휴학' }
+const roleLabel: Record<string, string> = { owner: '방장', staff: '임원진', '총무': '총무', member: '일반 부원', alumni: '졸업/휴학' }
 const roleBadge: Record<string, 'primary' | 'warning' | 'default' | 'outline'> = {
-  owner: 'primary', staff: 'warning', member: 'default', alumni: 'outline',
+  owner: 'primary', staff: 'warning', '총무': 'warning', member: 'default', alumni: 'outline',
 }
 
 export default function MembersClient({ clubId, clubName, applications: initApps, members: initMembers, myRole }: Props) {
@@ -159,6 +159,7 @@ export default function MembersClient({ clubId, clubName, applications: initApps
                         className="text-xs border border-gray-200 rounded-lg px-2 py-1 focus:outline-none focus:border-[#C0392B]"
                       >
                         <option value="staff">임원진</option>
+                        <option value="총무">총무</option>
                         <option value="member">일반 부원</option>
                         <option value="alumni">졸업/휴학</option>
                       </select>
