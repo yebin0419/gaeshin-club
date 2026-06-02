@@ -270,6 +270,11 @@ export default function ClubDetailClient({ club, memberCount }: Props) {
             </div>
           )}
 
+          {isMember && !isOwnerOrStaff && (
+            <Button variant="outline" className="w-full text-gray-600" onClick={() => router.push(`/clubs/${club.id}/members`)}>
+              멤버 목록
+            </Button>
+          )}
           {isOwnerOrStaff && (
             <div className="flex gap-2">
               <Button variant="outline" className="flex-1" onClick={() => router.push(`/clubs/${club.id}/members`)}>

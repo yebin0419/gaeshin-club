@@ -31,6 +31,7 @@ interface Props {
   applications: Application[]
   members: Member[]
   myRole: string
+  canManage: boolean
 }
 
 const roleLabel: Record<string, string> = { owner: '방장', staff: '임원진', '총무': '총무', member: '일반 부원', alumni: '졸업/휴학' }
@@ -38,7 +39,7 @@ const roleBadge: Record<string, 'primary' | 'warning' | 'default' | 'outline'> =
   owner: 'primary', staff: 'warning', '총무': 'warning', member: 'default', alumni: 'outline',
 }
 
-export default function MembersClient({ clubId, clubName, applications: initApps, members: initMembers, myRole }: Props) {
+export default function MembersClient({ clubId, clubName, applications: initApps, members: initMembers, myRole, canManage }: Props) {
   console.log('DB에서 막 퍼온 멤버 데이터:', initMembers)
   console.log('에러가 있다면: (서버에서 처리됨, 에러 시 빈 배열 전달)')
   console.log('myRole:', myRole, '/ isOwner:', myRole === 'owner')
@@ -150,8 +151,8 @@ export default function MembersClient({ clubId, clubName, applications: initApps
           <h1 className="font-bold text-lg">{clubName} 멤버 관리</h1>
         </div>
 
-        {/* 가입 신청 목록 */}
-        {applications.length > 0 && (
+        {/* 가입 신청 목록 (방장·임원진만) */}
+        {canManage && applications.length > 0 && (
           <div className="mb-6">
             <h2 className="text-sm font-semibold text-gray-700 mb-2">가입 신청 ({applications.length})</h2>
             <div className="flex flex-col gap-2">

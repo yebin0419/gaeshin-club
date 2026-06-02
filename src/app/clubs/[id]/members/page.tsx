@@ -20,9 +20,12 @@ export default async function MembersPage({ params }: { params: Promise<{ id: st
 
   const isGlobalAdmin = ADMIN_ROLES.includes(userData?.role ?? '')
 
-  if (!isGlobalAdmin && (!myMembership || (myMembership.role !== 'owner' && myMembership.role !== 'staff'))) {
-    redirect(`/clubs/${id}`)
-  }
+  // 멤버가 아니면 접근 불가 (비회원·대기자 차단)
+  if (!isGlobalAdmin && !myMembership) redirect(`/clubs/${id}`)
+
+  const canManage = isGlobalAdmin ||
+    myMembership?.role === 'owner' ||
+    myMembership?.role === 'staff'
 
   const { data: club } = await supabase
     .from('clubs')
@@ -76,6 +79,7 @@ export default async function MembersPage({ params }: { params: Promise<{ id: st
       applications={applications ?? []}
       members={members}
       myRole={myRole}
+      canManage={canManage}
     />
   )
 }
