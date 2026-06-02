@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, Check, X } from 'lucide-react'
+import { ArrowLeft, Check, X, MessageCircle } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import Button from '@/components/ui/Button'
 import Badge from '@/components/ui/Badge'
@@ -50,11 +50,66 @@ export default function MembersClient({ clubId, clubName, applications: initApps
   const [memberList, setMemberList] = useState(initMembers)
   const [rejectReason, setRejectReason] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState<string | null>(null)
+  const [dmLoading, setDmLoading] = useState<string | null>(null)
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setCurrentUserId(data.user?.id ?? null))
   }, [])
+
+  const startPersonalChat = async (targetUserId: string) => {
+    if (!currentUserId) return
+    setDmLoading(targetUserId)
+
+    // 기존 1:1 채팅방 탐색
+    const { data: myRooms } = await supabase
+      .from('chat_room_members')
+      .select('room_id')
+      .eq('user_id', currentUserId)
+
+    const myRoomIds = (myRooms ?? []).map(r => r.room_id)
+
+    if (myRoomIds.length > 0) {
+      const { data: shared } = await supabase
+        .from('chat_room_members')
+        .select('room_id')
+        .eq('user_id', targetUserId)
+        .in('room_id', myRoomIds)
+        .maybeSingle()
+
+      if (shared) {
+        const { data: roomData } = await supabase
+          .from('chat_rooms')
+          .select('id')
+          .eq('id', shared.room_id)
+          .eq('type', 'personal')
+          .maybeSingle()
+
+        if (roomData) {
+          router.push(`/chat/${roomData.id}`)
+          setDmLoading(null)
+          return
+        }
+      }
+    }
+
+    // 없으면 새 1:1 채팅방 생성
+    const { data: newRoom } = await supabase
+      .from('chat_rooms')
+      .insert({ type: 'personal' })
+      .select('id')
+      .single()
+
+    if (!newRoom) { setDmLoading(null); return }
+
+    await supabase.from('chat_room_members').insert([
+      { room_id: newRoom.id, user_id: currentUserId },
+      { room_id: newRoom.id, user_id: targetUserId },
+    ])
+
+    router.push(`/chat/${newRoom.id}`)
+    setDmLoading(null)
+  }
 
   const approve = async (app: Application) => {
     setLoading(app.id)
@@ -151,6 +206,16 @@ export default function MembersClient({ clubId, clubName, applications: initApps
                 </div>
                 <div className="flex items-center gap-2">
                   <Badge variant={roleBadge[m.role] ?? 'default'}>{roleLabel[m.role] ?? m.role}</Badge>
+                  {m.user_id !== currentUserId && (
+                    <button
+                      onClick={() => startPersonalChat(m.user_id)}
+                      disabled={dmLoading === m.user_id}
+                      className="p-1.5 rounded-lg text-gray-400 hover:text-[#C0392B] hover:bg-[#FADBD8] transition-colors disabled:opacity-40"
+                      title="1:1 메시지"
+                    >
+                      <MessageCircle size={16} />
+                    </button>
+                  )}
                   {myRole === 'owner' && m.user_id !== currentUserId && m.role !== 'owner' && (
                     <>
                       <select
