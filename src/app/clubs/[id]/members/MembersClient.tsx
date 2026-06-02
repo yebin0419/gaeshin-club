@@ -64,7 +64,7 @@ export default function MembersClient({ clubId, clubName, applications: initApps
 
     // 기존 1:1 채팅방 탐색
     const { data: myRooms } = await supabase
-      .from('chat_room_members')
+      .from('chat_participants')
       .select('room_id')
       .eq('user_id', currentUserId)
 
@@ -72,7 +72,7 @@ export default function MembersClient({ clubId, clubName, applications: initApps
 
     if (myRoomIds.length > 0) {
       const { data: shared } = await supabase
-        .from('chat_room_members')
+        .from('chat_participants')
         .select('room_id')
         .eq('user_id', targetUserId)
         .in('room_id', myRoomIds)
@@ -103,7 +103,7 @@ export default function MembersClient({ clubId, clubName, applications: initApps
 
     if (!newRoom) { setDmLoading(null); return }
 
-    await supabase.from('chat_room_members').insert([
+    await supabase.from('chat_participants').insert([
       { room_id: newRoom.id, user_id: currentUserId },
       { room_id: newRoom.id, user_id: targetUserId },
     ])

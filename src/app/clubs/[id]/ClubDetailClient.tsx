@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
-import { Users, ArrowLeft, Loader2 } from 'lucide-react'
+import { Users, ArrowLeft, Loader2, X, MessageSquare } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import Button from '@/components/ui/Button'
 import Badge from '@/components/ui/Badge'
@@ -13,6 +13,16 @@ const categoryEmoji: Record<string, string> = {
   교양: '🎨', 학술: '📚', 문화: '🎭', 봉사: '🤝', 체육: '⚽', 종교: '✝️',
 }
 
+const roleLabel: Record<string, string> = {
+  owner: '방장', staff: '임원진', '총무': '총무', member: '일반 부원', alumni: '졸업/휴학',
+}
+
+interface ChatMember {
+  user_id: string
+  role: string
+  user: { name: string } | null
+}
+
 interface Props {
   club: Club
   memberCount: number
@@ -20,8 +30,8 @@ interface Props {
 
 export default function ClubDetailClient({ club, memberCount }: Props) {
   const router = useRouter()
-  // useMemo로 컴포넌트 생애주기 동안 단 한 번만 생성
   const supabase = useMemo(() => createClient(), [])
+
   const [showForm, setShowForm] = useState(false)
   const [contact, setContact] = useState('')
   const [introduction, setIntroduction] = useState('')
@@ -34,6 +44,12 @@ export default function ClubDetailClient({ club, memberCount }: Props) {
   const [isRecruiting, setIsRecruiting] = useState(club.is_recruiting)
   const [recruitingLoading, setRecruitingLoading] = useState(false)
 
+  // 채팅 모달
+  const [showChatModal, setShowChatModal] = useState(false)
+  const [chatMembers, setChatMembers] = useState<ChatMember[]>([])
+  const [chatModalLoading, setChatModalLoading] = useState(false)
+  const [dmLoading, setDmLoading] = useState<string | null>(null)
+
   useEffect(() => {
     const fetchMembership = async () => {
       const { data: { user } } = await supabase.auth.getUser()
@@ -42,28 +58,13 @@ export default function ClubDetailClient({ club, memberCount }: Props) {
       setUserId(user.id)
 
       const [{ data: memberData }, { data: userData }] = await Promise.all([
-        supabase
-          .from('club_members')
-          .select('role')
-          .eq('club_id', club.id)
-          .eq('user_id', user.id)
-          .maybeSingle(),
-        supabase
-          .from('users')
-          .select('role')
-          .eq('id', user.id)
-          .maybeSingle(),
+        supabase.from('club_members').select('role').eq('club_id', club.id).eq('user_id', user.id).maybeSingle(),
+        supabase.from('users').select('role').eq('id', user.id).maybeSingle(),
       ])
 
       const ADMIN_ROLES = ['app_admin', 'admin']
       const isGlobalAdmin = ADMIN_ROLES.includes(userData?.role ?? '')
 
-      console.log('[권한체크] user.id:', user.id)
-      console.log('[권한체크] users.role (DB값):', userData?.role)
-      console.log('[권한체크] club_members 조회 결과:', memberData)
-      console.log('[권한체크] isGlobalAdmin:', isGlobalAdmin)
-
-      // 전역 관리자이면 무조건 owner로 간주
       if (isGlobalAdmin) {
         setMembership({ role: 'owner' })
       } else {
@@ -87,6 +88,72 @@ export default function ClubDetailClient({ club, memberCount }: Props) {
     setLoading(false)
   }
 
+  const openChatModal = async () => {
+    setShowChatModal(true)
+    setChatModalLoading(true)
+    const { data } = await supabase
+      .from('club_members')
+      .select('user_id, role, user:users(name)')
+      .eq('club_id', club.id)
+      .neq('user_id', userId ?? '')
+    setChatMembers((data as ChatMember[]) ?? [])
+    setChatModalLoading(false)
+  }
+
+  const openPersonalChat = async (targetUserId: string) => {
+    if (!userId) return
+    setDmLoading(targetUserId)
+
+    // 기존 1:1 채팅방 탐색
+    const { data: myParticipations } = await supabase
+      .from('chat_participants')
+      .select('room_id')
+      .eq('user_id', userId)
+
+    const myRoomIds = (myParticipations ?? []).map(r => r.room_id)
+
+    if (myRoomIds.length > 0) {
+      const { data: shared } = await supabase
+        .from('chat_participants')
+        .select('room_id')
+        .eq('user_id', targetUserId)
+        .in('room_id', myRoomIds)
+        .maybeSingle()
+
+      if (shared) {
+        const { data: room } = await supabase
+          .from('chat_rooms')
+          .select('id')
+          .eq('id', shared.room_id)
+          .eq('type', 'personal')
+          .maybeSingle()
+
+        if (room) {
+          router.push(`/clubs/${club.id}/chat/${room.id}`)
+          setDmLoading(null)
+          return
+        }
+      }
+    }
+
+    // 새 방 생성
+    const { data: newRoom } = await supabase
+      .from('chat_rooms')
+      .insert({ type: 'personal' })
+      .select('id')
+      .single()
+
+    if (!newRoom) { setDmLoading(null); return }
+
+    await supabase.from('chat_participants').insert([
+      { room_id: newRoom.id, user_id: userId },
+      { room_id: newRoom.id, user_id: targetUserId },
+    ])
+
+    router.push(`/clubs/${club.id}/chat/${newRoom.id}`)
+    setDmLoading(null)
+  }
+
   const isMember = !!membership
   const isOwner = membership?.role === 'owner'
   const isOwnerOrStaff = isOwner || membership?.role === 'staff'
@@ -95,18 +162,14 @@ export default function ClubDetailClient({ club, memberCount }: Props) {
     setRecruitingLoading(true)
     setError('')
     const next = !isRecruiting
-    console.log('[토글] club.id:', club.id, '변경할 값:', next)
     const { error, data } = await supabase
       .from('clubs')
       .update({ is_recruiting: next })
       .eq('id', club.id)
       .select()
-    console.log('[토글] 결과 data:', data, 'error:', error)
     if (error) {
-      console.error('DB 업데이트 에러:', error)
       setError(`모집 상태 변경 실패: ${error.message}`)
     } else if (!data || data.length === 0) {
-      console.error('DB 업데이트 에러: RLS 정책에 의해 차단됨 (0 rows updated)')
       setError('권한 오류: 모집 상태를 변경할 수 없습니다. (RLS)')
     } else {
       setIsRecruiting(next)
@@ -122,6 +185,45 @@ export default function ClubDetailClient({ club, memberCount }: Props) {
       </div>
     )
   }
+
+  // 멤버/방장 공통 버튼 블록
+  const memberButtons = (boardLabel: string, boardStyle: string) => (
+    <>
+      <div className="flex gap-2">
+        <Button
+          size="lg"
+          className={`flex-1 ${boardStyle}`}
+          onClick={() => router.push(`/clubs/${club.id}/board`)}
+        >
+          {boardLabel}
+        </Button>
+        <Button
+          size="lg"
+          variant="outline"
+          className="flex-1"
+          onClick={() => router.push(`/clubs/${club.id}/finance`)}
+        >
+          회비 내역
+        </Button>
+      </div>
+      <Button
+        size="lg"
+        variant="outline"
+        className="w-full text-gray-600"
+        onClick={() => router.push(`/clubs/${club.id}/chat`)}
+      >
+        공지방
+      </Button>
+      <button
+        onClick={openChatModal}
+        className="w-full flex items-center justify-center gap-2 py-3 rounded-xl
+          bg-[#3C5A78] hover:bg-[#2d4460] text-white font-medium text-sm transition-colors"
+      >
+        <MessageSquare size={16} />
+        채팅하기
+      </button>
+    </>
+  )
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -178,57 +280,9 @@ export default function ClubDetailClient({ club, memberCount }: Props) {
         {/* 버튼 영역 */}
         <div className="flex flex-col gap-2">
           {isOwner ? (
-            <>
-              <div className="flex gap-2">
-                <Button
-                  size="lg"
-                  className="flex-1 bg-[#C0392B] hover:bg-[#a93226] text-white"
-                  onClick={() => router.push(`/clubs/${club.id}/board`)}
-                >
-                  게시판 입장
-                </Button>
-                <Button
-                  size="lg"
-                  variant="outline"
-                  className="flex-1"
-                  onClick={() => router.push(`/clubs/${club.id}/finance`)}
-                >
-                  회비 내역
-                </Button>
-              </div>
-              <Button
-                size="lg"
-                variant="outline"
-                className="w-full text-gray-600"
-                onClick={() => router.push(`/clubs/${club.id}/chat`)}
-              >
-                공지방
-              </Button>
-            </>
+            memberButtons('게시판 입장', 'bg-[#C0392B] hover:bg-[#a93226] text-white')
           ) : isMember ? (
-            <>
-              <div className="flex gap-2">
-                <Button size="lg" className="flex-1" onClick={() => router.push(`/clubs/${club.id}/board`)}>
-                  게시판 보기
-                </Button>
-                <Button
-                  size="lg"
-                  variant="outline"
-                  className="flex-1"
-                  onClick={() => router.push(`/clubs/${club.id}/finance`)}
-                >
-                  회비 내역
-                </Button>
-              </div>
-              <Button
-                size="lg"
-                variant="outline"
-                className="w-full text-gray-600"
-                onClick={() => router.push(`/clubs/${club.id}/chat`)}
-              >
-                공지방
-              </Button>
-            </>
+            memberButtons('게시판 보기', 'bg-[#C0392B] hover:bg-[#a93226] text-white')
           ) : isRecruiting ? (
             <>
               {!showForm && !success && (
@@ -287,6 +341,56 @@ export default function ClubDetailClient({ club, memberCount }: Props) {
           )}
         </div>
       </div>
+
+      {/* 멤버 선택 모달 */}
+      {showChatModal && (
+        <div
+          className="fixed inset-0 z-50 bg-black/50 flex items-end"
+          onClick={() => setShowChatModal(false)}
+        >
+          <div
+            className="bg-white w-full max-w-2xl mx-auto rounded-t-2xl max-h-[70vh] flex flex-col"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-5 pt-5 pb-3 border-b border-gray-100">
+              <h3 className="font-bold text-gray-900">채팅할 멤버 선택</h3>
+              <button onClick={() => setShowChatModal(false)} className="p-1 text-gray-400 hover:text-gray-600">
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="overflow-y-auto flex-1 px-3 py-2">
+              {chatModalLoading ? (
+                <div className="flex justify-center py-10">
+                  <Loader2 size={24} className="animate-spin text-gray-300" />
+                </div>
+              ) : chatMembers.length === 0 ? (
+                <p className="text-center text-sm text-gray-400 py-10">다른 멤버가 없습니다.</p>
+              ) : (
+                chatMembers.map(m => (
+                  <button
+                    key={m.user_id}
+                    onClick={() => openPersonalChat(m.user_id)}
+                    disabled={!!dmLoading}
+                    className="w-full flex items-center gap-3 px-2 py-3 rounded-xl hover:bg-gray-50 transition-colors text-left disabled:opacity-60"
+                  >
+                    <div className="w-10 h-10 rounded-full bg-[#3C5A78]/10 flex items-center justify-center text-[#3C5A78] font-semibold text-sm flex-shrink-0">
+                      {m.user?.name?.charAt(0) ?? '?'}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-gray-900 text-sm">{m.user?.name}</p>
+                      <p className="text-xs text-gray-400">{roleLabel[m.role] ?? m.role}</p>
+                    </div>
+                    {dmLoading === m.user_id && (
+                      <Loader2 size={16} className="animate-spin text-gray-400 flex-shrink-0" />
+                    )}
+                  </button>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
